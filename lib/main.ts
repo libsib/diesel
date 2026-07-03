@@ -34,7 +34,11 @@ import {
   authenticateJwtMiddleware,
 } from "./utils/jwt.js";
 
-import { buildRequestPipeline, BunRequestPipline } from "./request_pipeline.js";
+import {
+  build_request_pipeline_latest,
+  buildRequestPipeline,
+  BunRequestPipline,
+} from "./request_pipeline.js";
 
 import { getPath } from "./utils/urls.js";
 
@@ -496,10 +500,27 @@ export default class Diesel {
     // NORMAL WAY WITH BUN/NODE/DENO
 
     if (this.#newPipelineArchitecture) {
-      // New way
-      const pipeline = buildRequestPipeline(this as any);
-      return (req: Request, server: Server) => {
-        return pipeline(req, this, server, undefined, undefined).catch(
+      const execute_handler = build_request_pipeline_latest(this);
+      return (
+        req: Request,
+        server?: Server,
+        env?: Record<string, any>,
+        executionContext?: any,
+      ) => {
+        const path = getPath(req.url);
+        const matchedRouteHandler = this.router.find(
+          req.method as HttpMethod,
+          path,
+        );
+        const ctx = new Context(
+          req,
+          server,
+          path,
+          matchedRouteHandler?.params || EMPTY_OBJ,
+          env,
+          executionContext,
+        );
+        return execute_handler(this, ctx, matchedRouteHandler).catch(
           async (error: any) => {
             return this.handleError(error, getPath(req.url), req);
           },
@@ -741,10 +762,10 @@ export default class Diesel {
     }
 
     // Middleware assigning
-    for (const [
-      path,
-      handlers,
-    ] of routerInstance?.tempMiddlewares?.entries() as any) {
+    const tempMiddlewares =
+      routerInstance?.tempMiddlewares ?? new Map<string, middlewareFunc[]>();
+
+    for (const [path, handlers] of tempMiddlewares.entries()) {
       const fullPath = path === "/" ? basePath || "/" : `${basePath}${path}`;
       this.router.addMiddleware(fullPath, handlers);
     }

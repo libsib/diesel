@@ -34,6 +34,10 @@ child.get("/:id", (ctx: Context) => ctx.json({ id: ctx.params.id }));
 
 app.sub("/app/*", child);
 
+const routedChild = new Diesel();
+routedChild.get("/test", (ctx: Context) => ctx.text("routed response"));
+app.route("/routed", routedChild);
+
 app.mount("/external/*", async (req: Request) => {
   return new Response("external response", {
     headers: { "x-external": "true" },
@@ -103,5 +107,13 @@ describe("mount — 3rd party handler", () => {
   it("external handler headers are preserved", async () => {
     const res = await fetch(`${baseUrl}/external/anything`);
     expect(res.headers.get("x-external")).toBe("true");
+  });
+});
+
+describe("route — subrouting", () => {
+  it("routes to child /test", async () => {
+    const res = await fetch(`${baseUrl}/routed/test`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("routed response");
   });
 });

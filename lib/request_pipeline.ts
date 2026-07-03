@@ -1,8 +1,15 @@
-import {  Diesel, HookFunction, middlewareFunc } from "./types";
+import { Diesel, HookFunction, middlewareFunc } from "./types";
 import { Context } from "./ctx";
-import { executeBunMiddlewares, generateErrorResponse, handleRouteNotFound, runFilter, runHooks } from "./utils/request.util";
+import { getPath } from "./utils/urls";
+import { EMPTY_OBJ } from "./constant";
+import {
+  executeBunMiddlewares,
+  generateErrorResponse,
+  handleRouteNotFound,
+  runFilter,
+  runHooks,
+} from "./utils/request.util";
 import { isPromise } from "./utils/promise";
-
 
 function extractBody(fn: Function) {
   const src = fn.toString().trim();
@@ -18,39 +25,42 @@ function extractBody(fn: Function) {
   return src.slice(start, end).trim();
 }
 
-const isAsync = (func: Function) => func.constructor.name === 'AsyncFunction';
+const isAsync = (func: Function) => func.constructor.name === "AsyncFunction";
 
-const pushHooks = (pipeline: string[], hooks: HookFunction[], hooksType: string, ...args: any) => {
+const hook_final_res = (hook_type: string, res_var: string): string => {
+  if (hook_type === "onRequest") {
+    return "";
+  }
+  return `if (${res_var}) return ${res_var};`;
+};
+
+const pushHooks = (
+  pipeline: string[],
+  hooks: HookFunction[],
+  hooksType: string,
+  ...args: any
+) => {
   if (hooks.length > 5) {
     pipeline.push(`
-      for (let i = 0; i < diesel.hooks.${hooksType}.length; i++) {
-        const result = diesel.hooks.${hooksType}[i](${args});
-        const finalResult = result instanceof Promise ? await result : result;
-        if (finalResult && '${hooksType}' !== 'onRequest') return finalResult
+    for (let i = 0; i < diesel.hooks.${hooksType}.length; i++) {
+      const result = diesel.hooks.${hooksType}[i](${args});
+      const finalResult = result instanceof Promise ? await result : result;
+      ${hook_final_res(hooksType, "finalResult")}
     }
-  `)
-  }
-  // else inline each hooks functions
-  else {
+    `);
+  } else {
     hooks?.forEach((handler: Function, index: number) => {
-      const isFunctionAsync = isAsync(handler)
-      if (isFunctionAsync) {
-        // use await
-        pipeline.push(`
-            const ${hooksType}${index}Result = await diesel.hooks.${hooksType}[${index}](${args})
-            if (${hooksType}${index}Result && '${hooksType}' !== 'onRequest') return ${hooksType}${index}Result
-            `)
-      }
-      else {
-        // normal function invokation
-        pipeline.push(`
-            const ${hooksType}${index}Result = diesel.hooks.${hooksType}[${index}](${args})
-             if (${hooksType}${index}Result && '${hooksType}' !== 'onRequest') return ${hooksType}${index}Result
-            `)
-      }
-    })
+      const isFunctionAsync = isAsync(handler);
+      const resVar = `${hooksType}${index}Result`;
+      const awaitPrefix = isFunctionAsync ? "await " : "";
+
+      pipeline.push(`
+        const ${resVar} = ${awaitPrefix}diesel.hooks.${hooksType}[${index}](${args});
+        ${hook_final_res(hooksType, resVar)}
+      `);
+    });
   }
-}
+};
 
 const pushParsePathname = (pipeline: string[]) => {
   pipeline.push(`
@@ -71,21 +81,23 @@ const pushParsePathname = (pipeline: string[]) => {
     if (!pathname) {
       pathname = req.url.slice(start, i);
     }
-  `)
-}
+  `);
+};
 
-const pushMiddlewares = (pipeline: string[], globalMiddlewares: middlewareFunc[]) => {
+const pushMiddlewares = (
+  pipeline: string[],
+  globalMiddlewares: middlewareFunc[],
+) => {
   if (globalMiddlewares.length <= 5) {
     // Inline each middleware for max speed
     for (let i = 0; i < globalMiddlewares.length; i++) {
-      const isFunctionAsync = isAsync(globalMiddlewares[i])
+      const isFunctionAsync = isAsync(globalMiddlewares[i]);
       if (isFunctionAsync) {
         pipeline.push(`
           const resultMiddleware${i} = await globalMiddlewares[${i}](ctx);
           if (resultMiddleware${i}) return resultMiddleware${i};
       `);
-      }
-      else {
+      } else {
         pipeline.push(`
         const resultMiddleware${i} = globalMiddlewares[${i}](ctx);
         if (resultMiddleware${i}) return resultMiddleware${i};
@@ -100,36 +112,35 @@ const pushMiddlewares = (pipeline: string[], globalMiddlewares: middlewareFunc[]
       if (result) return result;
     }
   `);
-
   }
-}
+};
 
 export const buildRequestPipeline = (diesel: Diesel) => {
   const pipeline: string[] = [];
 
-  const PreHandlerHook = diesel?.hasPreHandlerHook ? diesel.hooks.preHandler : [] as any;
-  const OnSendHook = diesel?.hasOnSendHook ? diesel.hooks.onSend : [] as any;
+  const PreHandlerHook = diesel?.hasPreHandlerHook
+    ? diesel.hooks.preHandler
+    : ([] as any);
+  const OnSendHook = diesel?.hasOnSendHook ? diesel.hooks.onSend : ([] as any);
 
   // parse pathname
-  pushParsePathname(pipeline)
+  pushParsePathname(pipeline);
 
   // finc routeHandler
   pipeline.push(`
       const matchedRouteHandler = diesel.router.find(req.method, pathname);
     `);
 
-
   pipeline.push(`
           const ctx = new Context(
-          req, 
-          server, 
-          pathname, 
+          req,
+          server,
+          pathname,
           matchedRouteHandler?.params,
           env,
           executionContext
           )
-    `)
-
+    `);
 
   // Filters
   if (diesel.hasFilterEnabled) {
@@ -139,17 +150,16 @@ export const buildRequestPipeline = (diesel: Diesel) => {
       `);
   }
 
-
   // Pre-handler
   if (diesel.hasPreHandlerHook) {
-    pushHooks(pipeline, PreHandlerHook, 'preHandler', 'ctx')
+    pushHooks(pipeline, PreHandlerHook, "preHandler", "ctx");
   }
 
   // Actual route handler
   pipeline.push(`
           let finalResult
                 const handlers = matchedRouteHandler?.handler;
-          
+
                 if (handlers.length === 1) {
                   const result = handlers[0](ctx);
                   finalResult = isPromise(result) ? await result : result;
@@ -165,7 +175,7 @@ export const buildRequestPipeline = (diesel: Diesel) => {
 
   // onSend
   if (diesel.hasOnSendHook) {
-    pushHooks(pipeline, OnSendHook, 'onSend', 'ctx', 'finalResult')
+    pushHooks(pipeline, OnSendHook, "onSend", "ctx", "finalResult");
   }
 
   // Final response
@@ -190,28 +200,29 @@ export const buildRequestPipeline = (diesel: Diesel) => {
     "generateErrorResponse",
     "Context",
     "isPromise",
-    fnBody
-  )(
-    runFilter,
-    handleRouteNotFound,
-    generateErrorResponse,
-    Context,
-    isPromise
-  );
+    fnBody,
+  )(runFilter, handleRouteNotFound, generateErrorResponse, Context, isPromise);
 
   // console.log(fnc.toString())
   return fnc;
+};
 
-}
-
-export const BunRequestPipline = (diesel: Diesel, method: string, path: string, ...handlersOrResponse: Function[]) => {
-  const pipeline: string[] = []
+export const BunRequestPipline = (
+  diesel: Diesel,
+  method: string,
+  path: string,
+  ...handlersOrResponse: Function[]
+) => {
+  const pipeline: string[] = [];
   // handlers
   let response_data: string | object | undefined;
-  if (typeof handlersOrResponse[0] === "string" || typeof handlersOrResponse[0] === "object") {
+  if (
+    typeof handlersOrResponse[0] === "string" ||
+    typeof handlersOrResponse[0] === "object"
+  ) {
     response_data = handlersOrResponse[0];
   }
-  const handlers = handlersOrResponse
+  const handlers = handlersOrResponse;
 
   // const globalMiddlewares =  diesel.globalMiddlewares ?? [];
   // const pathMiddlewares = diesel?.hasMiddleware ? diesel.middlewares.get(path) || [] : [];
@@ -221,8 +232,8 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
   const onRequestHooks = diesel?.hasOnReqHook ? diesel.hooks.onRequest : [];
 
   //filters
-  const hasFilter = diesel.filters?.has(path) ?? false
-  const filterFunctions = diesel.filterFunction ?? []
+  const hasFilter = diesel.filters?.has(path) ?? false;
+  const filterFunctions = diesel.filterFunction ?? [];
   // Hooks
   if (onRequestHooks && onRequestHooks?.length > 0) {
     pipeline.push(`
@@ -247,7 +258,7 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
   //   `);
   // }
 
-  // filter 
+  // filter
   if (diesel.hasFilterEnabled) {
     if (!hasFilter) {
       pipeline.push(
@@ -258,8 +269,8 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
         }
       } else {
         return Response.json({ error: "Protected route, authentication required" }, { status: 401 });
-      }`
-      )
+      }`,
+      );
     }
   }
 
@@ -267,7 +278,7 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
   pipeline.push(`
             if ("${method}" !== req.method)
         return new Response("Method Not Allowed", { status: 405 });
-      `)
+      `);
 
   // Direct send response
   if (typeof response_data !== "undefined") {
@@ -287,7 +298,7 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
   // Single Handler
   else if (handlers.length === 1) {
     const handlerFn = handlers[0];
-    const isFunctionAsync = isAsync(handlerFn)
+    const isFunctionAsync = isAsync(handlerFn);
 
     // const body = extractBody(handlerFn);
 
@@ -308,7 +319,7 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
   // for multiple handlers
   else {
     handlers.forEach((handler, index) => {
-      const isFunctionAsync = isAsync(handler)
+      const isFunctionAsync = isAsync(handler);
       // const body = extractBody(handler);
       // pipeline.push(`{
       //   ${body}
@@ -325,7 +336,7 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
             if (response${index} instanceof Response) return response${index};
         `);
       }
-    })
+    });
   }
 
   const fnBody = `
@@ -341,67 +352,87 @@ export const BunRequestPipline = (diesel: Diesel, method: string, path: string, 
     "filterFunctions",
     "onRequestHooks",
     "allMiddlewares",
-    fnBody
-  )
-    (
-      executeBunMiddlewares,
-      handlers,
-      runHooks,
-      filterFunctions,
-      onRequestHooks,
-      // allMiddlewares
-    );
+    fnBody,
+  )(
+    executeBunMiddlewares,
+    handlers,
+    runHooks,
+    filterFunctions,
+    onRequestHooks,
+    // allMiddlewares
+  );
   // console.log(String(fnc))
-  return fnc
-}
+  return fnc;
+};
 
+export const build_request_pipeline_latest = (diesel: Diesel): Function => {
+  const pipeline: any = [];
 
-//  Deprecated
+  const onReqHooks = diesel?.hasOnReqHook ? diesel.hooks.onRequest : [];
+  const PreHandlerHook = diesel?.hasPreHandlerHook
+    ? diesel.hooks.preHandler
+    : ([] as any);
+  const OnSendHook = diesel?.hasOnSendHook ? diesel.hooks.onSend : ([] as any);
 
-// const prevBunReq = (diesel: DieselT, path: string, method: string, handlers: Function[]) => {
-//   diesel.routes[path] = async (req: BunRequest, server: Server) => {
+  // push onreq hook
+  if (onReqHooks?.length) {
+    pushHooks(pipeline, onReqHooks, "onRequest", "ctx");
+  }
 
-//     if (diesel.hasMiddleware) {
-//       if (diesel.globalMiddlewares.length) {
-//         const globalMiddlewareResponse = await executeBunMiddlewares(
-//           diesel.globalMiddlewares,
-//           req,
-//           server
-//         );
-//         if (globalMiddlewareResponse) return globalMiddlewareResponse;
-//       }
+  // midl exec
+  const m = `if (matchedRouteHandler.middlewares?.length) {
+    for (const mw of matchedRouteHandler.middlewares) {
+      let res = mw(ctx);
+      res = isPromise(res) ? await res : res;
+      if (res) return res;
+    }
+  }`;
+  pipeline.push(m);
 
-//       const pathMiddlewares = diesel.middlewares.get(path) || [];
-//       if (pathMiddlewares?.length) {
-//         const pathMiddlewareResponse = await executeBunMiddlewares(
-//           pathMiddlewares,
-//           req,
-//           server
-//         );
-//         if (pathMiddlewareResponse) return pathMiddlewareResponse;
-//       }
-//     }
+  // Pre-handler
+  if (diesel.hasPreHandlerHook) {
+    pushHooks(pipeline, PreHandlerHook, "preHandler", "ctx");
+  }
 
-//     if (method !== req.method) return new Response("Method Not Allowed", { status: 405 });
+  // Handle the handler
+  const handler = `let finalResult;
+  if (matchedRouteHandler.handler) {
+    const handlers = matchedRouteHandler.handler;
+    for (let i = 0; i < handlers.length; i++) {
+      const result = handlers[i](ctx);
+      finalResult = isPromise(result) ? await result : result;
+      if (finalResult) break;
+    }
+  }`;
+  pipeline.push(handler);
 
-//     if (handlers.length === 1) {
-//       const response = handlers[0](req, server)
-//       if (response instanceof Promise) {
-//         const resolved = await response;
-//         return resolved ?? new Response("Not Found", { status: 404 });
-//       }
-//       if (response instanceof Response) return response
-//     }
-//     else {
-//       for (let i = 0; i < handlers.length; i++) {
-//         const response = handlers[i](req, server)
-//         if (response instanceof Promise) {
-//           const resolved = await response;
-//           return resolved ?? new Response("Not Found", { status: 404 });
-//         }
-//         if (response instanceof Response) return response
-//       }
-//     }
+  // onSend
+  if (diesel.hasOnSendHook) {
+    pushHooks(pipeline, OnSendHook, "onSend", "ctx", "finalResult");
+  }
 
-//   }
-// }
+  // Final response
+  pipeline.push(`
+      if (finalResult) return finalResult;
+    `);
+
+  // Route not found check
+  pipeline.push(`
+    return await handleRouteNotFound(diesel, ctx, ctx.path);
+  `);
+
+  const body = `
+      return async function execute_handlers(diesel, ctx, matchedRouteHandler){
+        ${pipeline.join("\n")}
+      }
+  `;
+
+  const fnc = new Function(
+    "diesel",
+    "handleRouteNotFound",
+    "Context",
+    "isPromise",
+    body,
+  );
+  return fnc(diesel, handleRouteNotFound, Context, isPromise);
+};
