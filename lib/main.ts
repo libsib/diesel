@@ -762,10 +762,10 @@ export default class Diesel {
     }
 
     // Middleware assigning
-    for (const [
-      path,
-      handlers,
-    ] of routerInstance?.tempMiddlewares?.entries() as any) {
+    const tempMiddlewares =
+      routerInstance?.tempMiddlewares ?? new Map<string, middlewareFunc[]>();
+
+    for (const [path, handlers] of tempMiddlewares.entries()) {
       const fullPath = path === "/" ? basePath || "/" : `${basePath}${path}`;
       this.router.addMiddleware(fullPath, handlers);
     }
