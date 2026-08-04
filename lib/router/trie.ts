@@ -6,13 +6,11 @@ class TrieNodes {
   handlers: Record<string, Array<Function>>;
   middlewares: Function[];
   params: Record<string, string>;
-  paramName: string;
   constructor() {
     this.children = {};
     this.handlers = {};
     this.middlewares = [];
     this.params = {};
-    this.paramName = "";
   }
 }
 
@@ -80,7 +78,6 @@ export class TrieRouter {
 
       if (cleanParam) {
         node.params[method] = cleanParam;
-        node.paramName = cleanParam;
       }
     }
     if (node.handlers[method]) return;
