@@ -260,3 +260,51 @@ describe("dynamic test again with dff", () => {
     expect(result.handler?.[0](result.params as any)).toBe("posts");
   });
 });
+
+describe("BUG: param name collision on shared trie nodes", () => {
+  // These document a real bug: TrieNodes stores a single mutable `paramName`
+  // field per node, but a node at a given tree position can be shared by
+  // routes that were registered with different param names (different
+  // methods, or different methods, or diverging branches on the same method).
+  // Whichever route was inserted LAST wins the name for ALL routes sharing
+  // that node. See comments in trie.ts (insert/search) for the mechanics.
+  //
+  // All three tests below currently FAIL against the buggy implementation.
+  // They should pass once paramName/params resolution is scoped per
+  // method + route instead of shared per node.
+
+  test("BUG: different param names for same path shape across different methods", () => {
+    const router = new TrieRouter();
+    router.add("GET", "/user/:id", () => "get");
+    router.add("DELETE", "/user/:user_id", () => "delete");
+
+    const getResult = router.find("GET", "/user/123");
+    const deleteResult = router.find("DELETE", "/user/123");
+
+    expect(getResult.params).toEqual({ id: "123" });
+    expect(deleteResult.params).toEqual({ user_id: "123" });
+  });
+
+  test("BUG: different param names for same method on diverging branches", () => {
+    const router = new TrieRouter();
+    router.add("GET", "/user/:id/profile", () => "profile");
+    router.add("GET", "/user/:name/settings", () => "settings");
+
+    const profileResult = router.find("GET", "/user/123/profile");
+    const settingsResult = router.find("GET", "/user/123/settings");
+
+    expect(profileResult.params).toEqual({ id: "123" });
+    expect(settingsResult.params).toEqual({ name: "123" });
+  });
+
+  test("BUG: three methods sharing identical path shape with distinct param names", () => {
+    const router = new TrieRouter();
+    router.add("GET", "/item/:itemId", () => "get");
+    router.add("PUT", "/item/:updateId", () => "put");
+    router.add("DELETE", "/item/:deleteId", () => "delete");
+
+    expect(router.find("GET", "/item/9").params).toEqual({ itemId: "9" });
+    expect(router.find("PUT", "/item/9").params).toEqual({ updateId: "9" });
+    expect(router.find("DELETE", "/item/9").params).toEqual({ deleteId: "9" });
+  });
+});
