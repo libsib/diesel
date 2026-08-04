@@ -5,7 +5,7 @@ class TrieNodes {
   children: Record<string, TrieNodes>;
   handlers: Record<string, Array<Function>>;
   middlewares: Function[];
-  params: Record<string, number>;
+  params: Record<string, string>;
   paramName: string;
   constructor() {
     this.children = {};
@@ -65,7 +65,6 @@ export class TrieRouter {
 
     const pathSegments = path.split("/").filter(Boolean);
 
-    let routeparams: Record<string, number> = {};
     for (let i = 0; i < pathSegments.length; i++) {
       const element = pathSegments[i];
       let key = element;
@@ -78,12 +77,12 @@ export class TrieRouter {
       if (!node.children[key]) node.children[key] = new TrieNodes();
 
       node = node.children[key];
+
       if (cleanParam) {
-        routeparams[cleanParam] = i;
+        node.params[method] = cleanParam;
         node.paramName = cleanParam;
       }
     }
-    node.params = routeparams;
     if (node.handlers[method]) return;
     node.handlers[method] = handlers;
   }
@@ -105,7 +104,6 @@ export class TrieRouter {
       if (element.length === 0) {
         continue;
       }
-
       const wildcardChild = node.children["*"];
       if (node.children[element]) {
         if (wildcardChild) {
@@ -120,7 +118,7 @@ export class TrieRouter {
         }
         node = node.children[":"];
         if (!paramObject) paramObject = {};
-        paramObject[node.paramName] = element;
+        paramObject[node.params[method]] = element;
       } else if (wildcardChild) {
         node = wildcardChild;
         break;
@@ -132,7 +130,6 @@ export class TrieRouter {
         };
       }
     }
-
     if (node.middlewares.length > 0) {
       const mw = node.middlewares;
       for (let j = 0; j < mw.length; j++) {
@@ -169,9 +166,21 @@ export class TrieRouter {
 }
 
 // const t1 = new TrieRouter()
-// // t1.insert('GET', '/user/:id', () => "Hello /")
+// t1.add("GET", "/user/:id/profile", () => "profile");
+// t1.add("GET", "/user/:name/settings", () => "settings");
+
+// const profileResult = t1.find("GET", "/user/123/profile");
+// const settingsResult = t1.find("DELETE", "/user/123/settings");
+
+// console.log("prifleResult ", profileResult)
+// console.log("settingsResult ", settingsResult)
+
+
+// t1.insert('GET', '/user/:id', () => "Hello /")
+// t1.insert('DELETE', '/user/:ids', () => "Hello /")
+
 // t1.insert('GET', "/ok/:id/username/:number", () => "Hello /")
-// const handler = t1.search('GET', '/ok/1/username/2')
+// const handler = t1.search('GET', '/user/2')
 // console.log('real worldf handler = ',handler)
 // t1.insert('GET', '/user/:id/:number/contact', () => "Hello /")
 // t1.insert('GET', "/:username", () => "Hell /user")
