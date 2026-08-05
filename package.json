@@ -1,7 +1,7 @@
 {
   "name": "diesel-core",
   "version": "2.2.6",
-  "description": "Web framework built on Web Standards",
+  "description": "Fast, minimal library for building backend APIs on Web Standards",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
