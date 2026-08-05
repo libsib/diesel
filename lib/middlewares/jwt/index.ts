@@ -2,6 +2,8 @@ import Diesel from "../../main";
 import { ContextType } from "../../types";
 import { authenticateJwtDbMiddleware, authenticateJwtMiddleware } from "../../utils/jwt";
 
+export { authenticateJwtMiddleware, authenticateJwtDbMiddleware };
+
 type authenticateJwtT = {
     app:Diesel,
     jwt:any,
