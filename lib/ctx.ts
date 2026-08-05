@@ -45,11 +45,34 @@ export class Context {
   private contextData: Record<string, any> = EMPTY_OBJ;
   private urlObject: URL | null = null;
 
+  private static pool: Context[] = [];
+
+  static acquire(
+    req: Request,
+    server: Server | undefined,
+    path: string | null,
+    param: Record<string, string> | undefined,
+    env: Record<string, any> | undefined,
+    executionContext: any | undefined,
+  ): Context {
+    const ctx = this.pool.pop();
+    if (ctx) {
+      ctx.reset(req, server, path, param, env, executionContext);
+      return ctx;
+    }
+    return new Context(req, server, path, param, env, executionContext);
+  }
+
+  static release(ctx: Context): void {
+    ctx.clear();
+    this.pool.push(ctx);
+  }
+
   constructor(
     req: Request,
     server: Server | undefined,
     path: string | null,
-    param: Record<string, string> | undefined, 
+    param: Record<string, string> | undefined,
     env: Record<string, any> | undefined,
     executionContext: any | undefined,
   ) {
@@ -59,6 +82,43 @@ export class Context {
     this.#param = param;
     this.env = env;
     this.executionContext = executionContext;
+  }
+
+  reset(
+    req: Request,
+    server: Server | undefined,
+    path: string | null,
+    param: Record<string, string> | undefined,
+    env: Record<string, any> | undefined,
+    executionContext: any | undefined,
+  ): void {
+    this.req = req;
+    this.server = server;
+    this.path = path;
+    this.#param = param;
+    this.env = env;
+    this.executionContext = executionContext;
+    this.headers = undefined;
+    this.parsedQuery = null;
+    this.parsedCookies = null;
+    this.parsedBody = null;
+    this.contextData = EMPTY_OBJ;
+    this.urlObject = null;
+  }
+
+  clear(): void {
+    this.req = null as any;
+    this.server = undefined;
+    this.path = null;
+    this.#param = undefined;
+    this.env = undefined;
+    this.executionContext = undefined;
+    this.headers = undefined;
+    this.parsedQuery = null;
+    this.parsedCookies = null;
+    this.parsedBody = null;
+    this.contextData = EMPTY_OBJ;
+    this.urlObject = null;
   }
 
   // Methods
@@ -143,7 +203,10 @@ export class Context {
   ): Response {
     if (!this.headers) {
       if (!customHeaders) {
-        return new Response(data, status === 200 ? _TEXT_INIT : _TEXT_INIT_WITH_STATUS(status));
+        return new Response(
+          data,
+          status === 200 ? _TEXT_INIT : _TEXT_INIT_WITH_STATUS(status),
+        );
       }
       const h: Record<string, string> = { "Content-Type": TEXT_PLAIN_CT };
       copyHeadersToObject(customHeaders, h);
@@ -425,4 +488,3 @@ async function parseBody(req: Request): Promise<ParseBodyResult> {
 
   return { error: "Unknown request body type" };
 }
-

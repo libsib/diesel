@@ -512,7 +512,7 @@ export default class Diesel {
           req.method as HttpMethod,
           path,
         );
-        const ctx = new Context(
+        const ctx = Context.acquire(
           req,
           server,
           path,
@@ -520,11 +520,32 @@ export default class Diesel {
           env,
           executionContext,
         );
-        return execute_handler(this, ctx, matchedRouteHandler).catch(
-          async (error: any) => {
-            return this.handleError(error, getPath(req.url), req);
-          },
-        );
+
+        let result;
+        try {
+          result = execute_handler(this, ctx, matchedRouteHandler);
+        } catch (error) {
+          const errRes = this.handleError(error, path, req);
+          Context.release(ctx);
+          return errRes;
+        }
+
+        if (isPromise(result)) {
+          return result.then(
+            (res: Response) => {
+              Context.release(ctx);
+              return res;
+            },
+            async (error: unknown) => {
+              const errRes = await this.handleError(error, path, req);
+              Context.release(ctx);
+              return errRes;
+            },
+          );
+        }
+
+        Context.release(ctx);
+        return result;
       };
     }
 
@@ -543,7 +564,7 @@ export default class Diesel {
       req.method as HttpMethod,
       path,
     );
-    const ctx = new Context(
+    const ctx = Context.acquire(
       req,
       server,
       path,
@@ -551,9 +572,32 @@ export default class Diesel {
       env,
       executionContext,
     );
-    return this.#execute_handlers(ctx, matchedRouteHandler).catch((err: any) =>
-      this.handleError(err, path, req),
-    );
+
+    let result;
+    try {
+      result = this.#execute_handlers(ctx, matchedRouteHandler);
+    } catch (error) {
+      const errRes = this.handleError(error, path, req);
+      Context.release(ctx);
+      return errRes;
+    }
+
+    if (isPromise(result)) {
+      return result.then(
+        (res) => {
+          Context.release(ctx);
+          return res;
+        },
+        async (error) => {
+          const errRes = await this.handleError(error, path, req);
+          Context.release(ctx);
+          return errRes;
+        },
+      );
+    }
+
+    Context.release(ctx);
+    return result;
   }
 
   async #execute_handlers(

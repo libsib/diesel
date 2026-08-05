@@ -5,7 +5,7 @@ const PORT = parseInt(process.env.PORT || "3000");
 
 export const app = new Diesel({ pipelineArchitecture: true });
 
-app.addHooks("onRequest", () => {})
+//app.addHooks("onRequest", () => {})
 
 app.get("/", (c: Context) => {
   return c.json({ message: "Hi there!", framework: "diesel" });

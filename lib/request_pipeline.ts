@@ -132,7 +132,7 @@ export const buildRequestPipeline = (diesel: Diesel) => {
     `);
 
   pipeline.push(`
-          const ctx = new Context(
+          const ctx = Context.acquire(
           req,
           server,
           pathname,
@@ -140,6 +140,7 @@ export const buildRequestPipeline = (diesel: Diesel) => {
           env,
           executionContext
           )
+          try {
     `);
 
   // Filters
@@ -186,6 +187,12 @@ export const buildRequestPipeline = (diesel: Diesel) => {
   // Route not found check
   pipeline.push(`
     return await handleRouteNotFound(diesel, ctx, pathname);
+  `);
+
+  pipeline.push(`
+      } finally {
+        Context.release(ctx);
+      }
   `);
 
   const fnBody = `
