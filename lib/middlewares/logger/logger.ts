@@ -1,6 +1,10 @@
 import Diesel from "../../main";
 import { ContextType } from "../../types";
 
+// Not exported: keeps this key collision-proof against anything user code
+// or other middlewares might store on the context under the same name.
+const START_TIME = Symbol("diesel.logger.startTime");
+
 enum LogPrefix {
     Outgoing = "-->",
     Incoming = "<--",
@@ -87,7 +91,7 @@ export const advancedLogger = (options?: AdvancedLoggerOptions) => {
     } = options || {};
 
     app?.addHooks('onRequest', (ctx: ContextType) => {
-        ctx.set('_startTime', Date.now());
+        ctx.set(START_TIME, Date.now());
 
         if (logger) {
             logger();
@@ -106,7 +110,7 @@ export const advancedLogger = (options?: AdvancedLoggerOptions) => {
     });
 
     app?.addHooks('onSend', async (ctx: ContextType, finalResult: Response): Promise<Response | undefined> => {
-        const startTime = ctx.get<number>('_startTime') ?? Date.now();
+        const startTime = ctx.get<number>(START_TIME) ?? Date.now();
         const duration = `${Date.now() - startTime}ms`;
 
         if (logger) {
@@ -193,7 +197,7 @@ export const logger = (options: LoggerOptions) => {
     app.addHooks("onRequest", (ctx: ContextType) => {
         const req = ctx.req
         const pathname = ctx.path
-        ctx.set('_startTime', Date.now());
+        ctx.set(START_TIME, Date.now());
 
         if (log) {
             log();
@@ -208,7 +212,7 @@ export const logger = (options: LoggerOptions) => {
         const { method, url } = ctx.req;
         const path = new URL(url).pathname;
         const reqId = ctx.get?.('requestId')
-        const startTime = ctx.get<number>('_startTime') ?? Date.now();
+        const startTime = ctx.get<number>(START_TIME) ?? Date.now();
 
         if (log) {
             log();

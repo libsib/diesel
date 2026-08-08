@@ -42,7 +42,7 @@ export class Context {
   private parsedQuery: Record<string, string> | null = null;
   private parsedCookies: Record<string, string> | null = null;
   private parsedBody: Promise<any> | null = null;
-  private contextData: Record<string, any> = EMPTY_OBJ;
+  private contextData: Record<string | symbol, any> = EMPTY_OBJ;
   private urlObject: URL | null = null;
 
   constructor(
@@ -73,13 +73,13 @@ export class Context {
     return this;
   }
 
-  set<T>(key: string, value: T): this {
+  set<T>(key: string | symbol, value: T): this {
     if (this.contextData === EMPTY_OBJ) this.contextData = {};
     this.contextData[key] = value;
     return this;
   }
 
-  get<T>(key: string): T | undefined {
+  get<T>(key: string | symbol): T | undefined {
     if (this.contextData === EMPTY_OBJ) return undefined;
     return this.contextData[key];
   }
