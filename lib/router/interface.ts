@@ -22,7 +22,7 @@ export class PeepalRouter implements Router {
     }
 
     add(method: string, path: string, handler: Function | Function[]): void {
-        this.router.add(method, path, handler as unknown as Function);
+        this.router.add(method, path, handler);
     }
 
     addMiddleware(path: string, handlers: Function | Function[]): void {
@@ -34,7 +34,7 @@ export class PeepalRouter implements Router {
         return {
             params: result.params,
             middlewares: result.middlewares,
-            handler: result.handler as unknown as Array<Function> | undefined,
+            handler: result.handler,
         };
     }
 }
