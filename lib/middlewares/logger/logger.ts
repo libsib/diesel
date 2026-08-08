@@ -201,7 +201,7 @@ export const logger = (options: LoggerOptions) => {
             );
 
         const res = await onSend?.(ctx);
-        return res instanceof Response ? res : finalResult;
+        if (res instanceof Response) return res;
     });
 
     app.addHooks("onError", async (error: Error, path: string, req: Request) => {
