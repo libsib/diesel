@@ -60,7 +60,7 @@ const log = (level: LogLevel, message: string, meta?: LogMeta) => {
             ? `${statusColor}${meta.status}${COLORS.reset}`
             : undefined,
         method: meta?.method
-            ? `${methodColor > color}${meta.method}${COLORS.reset}`
+            ? `${methodColor}${meta.method}${COLORS.reset}`
             : undefined,
     };
 
@@ -87,33 +87,42 @@ export const advancedLogger = (options?: AdvancedLoggerOptions) => {
     } = options || {};
 
     app?.addHooks('onRequest', (ctx: ContextType) => {
-        ctx.req.startTime = Date.now();
+        ctx.set('_startTime', Date.now());
 
-        logger?.() ?? log(logLevel, 'Incoming Request', {
-            method: ctx.req.method,
-            url: ctx.path!,
-            headers: {
-                'user-agent': ctx.req.headers.get('user-agent'),
-                'content-type': ctx.req.headers.get('content-type'),
-            },
-        });
+        if (logger) {
+            logger();
+        } else {
+            log(logLevel, 'Incoming Request', {
+                method: ctx.req.method,
+                url: ctx.path!,
+                headers: {
+                    'user-agent': ctx.req.headers.get('user-agent'),
+                    'content-type': ctx.req.headers.get('content-type'),
+                },
+            });
+        }
 
         onRequest?.(ctx);
     });
 
     app?.addHooks('onSend', async (ctx: ContextType, finalResult: Response): Promise<Response | undefined> => {
-        const duration = `${Date.now() - ctx.req.startTime}ms`;
+        const startTime = ctx.get<number>('_startTime') ?? Date.now();
+        const duration = `${Date.now() - startTime}ms`;
 
-        logger?.() ?? log(logLevel, 'Response Sent', {
-            method: ctx.req.method,
-            url: ctx.url.toString(),
-            status: finalResult.status,
-            duration,
-            reqId: ctx.get?.('requestId'),
-            headers: {
-                'content-type': finalResult.headers.get('content-type'),
-            },
-        });
+        if (logger) {
+            logger();
+        } else {
+            log(logLevel, 'Response Sent', {
+                method: ctx.req.method,
+                url: ctx.url.toString(),
+                status: finalResult.status,
+                duration,
+                reqId: ctx.get?.('requestId'),
+                headers: {
+                    'content-type': finalResult.headers.get('content-type'),
+                },
+            });
+        }
 
         const res = await onSend?.(ctx);
 
@@ -121,12 +130,16 @@ export const advancedLogger = (options?: AdvancedLoggerOptions) => {
     });
 
     app?.addHooks('onError', async (error: Error, path: string, req: Request) => {
-        logger?.() ?? log('error', 'Unhandled Error', {
-            method: req.method,
-            url: path,
-            status: 500,
-            error: error.message,
-        });
+        if (logger) {
+            logger();
+        } else {
+            log('error', 'Unhandled Error', {
+                method: req.method,
+                url: path,
+                status: 500,
+                error: error.message,
+            });
+        }
 
         const res = await onError?.(error, path, req);
         if (res instanceof Response) return res;
@@ -180,8 +193,13 @@ export const logger = (options: LoggerOptions) => {
     app.addHooks("onRequest", (ctx: ContextType) => {
         const req = ctx.req
         const pathname = ctx.path
-        req.startTime = Date.now();
-        log?.() ?? logFormatted(LogPrefix.Incoming, req.method, pathname!);
+        ctx.set('_startTime', Date.now());
+
+        if (log) {
+            log();
+        } else {
+            logFormatted(LogPrefix.Incoming, req.method, pathname!);
+        }
 
         onRequest?.(req, pathname!);
     });
@@ -190,15 +208,20 @@ export const logger = (options: LoggerOptions) => {
         const { method, url } = ctx.req;
         const path = new URL(url).pathname;
         const reqId = ctx.get?.('requestId')
-        log?.() ??
+        const startTime = ctx.get<number>('_startTime') ?? Date.now();
+
+        if (log) {
+            log();
+        } else {
             logFormatted(
                 LogPrefix.Outgoing,
                 method,
                 path,
                 finalResult?.status,
-                timeElapsed(ctx.req.startTime),
+                timeElapsed(startTime),
                 reqId as string
             );
+        }
 
         const res = await onSend?.(ctx);
         if (res instanceof Response) return res;
@@ -206,8 +229,12 @@ export const logger = (options: LoggerOptions) => {
 
     app.addHooks("onError", async (error: Error, path: string, req: Request) => {
         const pathname = req.path!
-        log?.() ??
+
+        if (log) {
+            log();
+        } else {
             logFormatted(error.message as LogPrefix, req.method, pathname, 500);
+        }
 
         const res = await onError?.(error, pathname, req);
         if (res instanceof Response) return res;
