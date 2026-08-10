@@ -30,7 +30,7 @@ export class PeepalRouter implements Router {
     }
 
     find(method: string, path: string): Find {
-        const result = this.router.find(method, path);
+        const result = this.router.search(method, path);
         return {
             params: result.params,
             middlewares: result.middlewares,
