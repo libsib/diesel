@@ -1,6 +1,6 @@
 {
   "name": "diesel-core",
-  "version": "2.2.6",
+  "version": "2.3.0",
   "description": "Fast, minimal library for building backend APIs on Web Standards",
   "main": "index.js",
   "types": "index.d.ts",
@@ -107,7 +107,7 @@
     "@types/uuid": "^10.0.0"
   },
   "peerDependencies": {
-    "typescript": "7"
+    "typescript": "^5.0.0"
   },
   "dependencies": {
     "peepal-router": "^0.5.0",
