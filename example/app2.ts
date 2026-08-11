@@ -1,5 +1,6 @@
 import Diesel from "../src/main";
 import jwt from 'jsonwebtoken'
+import { logger } from '../src/middlewares/logger/logger'
 import { BunRequest } from "bun";
 import { ContextType } from "../src/types";
 const app = new Diesel()
@@ -25,7 +26,7 @@ app.use(() => {
 })
 
 app.addHooks('onRequest', () => { console.log('onRequest') })
-app.useLogger({ app })
+app.useLogger(logger)
 // app.use(authJwt)
 
 // app.setupFilter()

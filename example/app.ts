@@ -74,8 +74,8 @@ app.use('/body', fileSaveMiddleware({ fields: ["avatar"] }));
 // app.use(securityMiddleware)
 
 app.use(requestId())
-app.useLogger({ app })
-// app.useAdvancedLogger({app})
+app.useLogger(logger)
+// app.useAdvancedLogger(advancedLogger)
 
 // app.use(requestId())
 

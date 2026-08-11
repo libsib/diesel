@@ -22,17 +22,10 @@ import {
 
 import { Server } from "bun";
 
-import {
-  advancedLogger,
+import type {
   AdvancedLoggerOptions,
-  logger,
   LoggerOptions,
 } from "./middlewares/logger/logger.js";
-
-import {
-  authenticateJwtDbMiddleware,
-  authenticateJwtMiddleware,
-} from "./utils/jwt.js";
 
 import {
   build_request_pipeline_latest,
@@ -123,7 +116,6 @@ export default class Diesel {
       jwtSecret,
       idleTimeOut = 10,
       pipelineArchitecture = false,
-      logger,
       onError,
     } = options;
 
@@ -171,15 +163,6 @@ export default class Diesel {
       this.addHooks("onError", (err: ErrnoException, path: string) => {
         console.log("Got an exception:", err);
         console.log("Request Path:", path);
-      });
-
-    // if user wants to log
-    if (logger)
-      this.useLogger({
-        app: this,
-        // onError(err) {
-        //   console.error('Got an exception:', err?.message ?? err?.cause);
-        // },
       });
 
     this.filterFunction = null;
@@ -262,7 +245,16 @@ export default class Diesel {
         }
       },
 
-      authenticateJwt: (jwt: any) => {
+      // Pass the middleware builder (e.g. `authenticateJwtMiddleware` from
+      // "diesel-core/jwt") so core doesn't carry JWT verification code for
+      // apps that never use it.
+      authenticateJwt: (
+        buildJwtAuth: (
+          jwt: any,
+          secret: string,
+        ) => (ctx: Context) => Response | Promise<Response | void> | void,
+        jwt: any,
+      ) => {
         if (!this.user_jwt_secret)
           throw new Error(
             "You must provide jwtSecret in Diesel Options to use authenticateJwt",
@@ -273,16 +265,21 @@ export default class Diesel {
             if (pathname.startsWith(pub)) return;
           }
 
-          const res = authenticateJwtMiddleware(
-            jwt,
-            this.user_jwt_secret!,
-          )(ctx);
+          const res = buildJwtAuth(jwt, this.user_jwt_secret!)(ctx);
           if (res) return res;
         };
         this.router.addMiddleware("/", wrapper);
       },
 
-      authenticateJwtDB: (jwt: any, User: any) => {
+      authenticateJwtDB: (
+        buildJwtDbAuth: (
+          jwt: any,
+          User: any,
+          secret: string,
+        ) => (ctx: Context) => Response | Promise<Response | void> | void,
+        jwt: any,
+        User: any,
+      ) => {
         if (!this.user_jwt_secret)
           throw new Error(
             "You must provide jwtSecret in Diesel Options to use authenticateJwt",
@@ -293,11 +290,7 @@ export default class Diesel {
             if (pathname.startsWith(pub)) return;
           }
 
-          const res = authenticateJwtDbMiddleware(
-            jwt,
-            User,
-            this.user_jwt_secret!,
-          )(ctx);
+          const res = buildJwtDbAuth(jwt, User, this.user_jwt_secret!)(ctx);
           if (res) return res;
         };
         this.router.addMiddleware("/", wrapper);
@@ -382,14 +375,22 @@ export default class Diesel {
     return this;
   }
 
-  // For logging incoming requests
-  useLogger(options: LoggerOptions) {
-    logger(options);
+  // For logging incoming requests. Pass the `logger` implementation
+  // (e.g. `import { logger } from "diesel-core/logger"`) so it's only
+  // bundled for apps that actually use it.
+  useLogger(
+    loggerFn: (options: LoggerOptions) => void,
+    options?: Omit<LoggerOptions, "app">,
+  ) {
+    loggerFn({ ...options, app: this } as LoggerOptions);
     return this;
   }
 
-  useAdvancedLogger(options: AdvancedLoggerOptions) {
-    advancedLogger(options);
+  useAdvancedLogger(
+    loggerFn: (options: AdvancedLoggerOptions) => void,
+    options?: Omit<AdvancedLoggerOptions, "app">,
+  ) {
+    loggerFn({ ...options, app: this } as AdvancedLoggerOptions);
     return this;
   }
 
