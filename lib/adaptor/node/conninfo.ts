@@ -10,7 +10,6 @@ export interface ConnInfo {
 
 export function connInfo(req: http.IncomingMessage | Request): ConnInfo {
     let headers: Record<string, string | string[]> = {};
-    console.log(req.socket)
     if ('headers' in req) {
         if ('get' in req.headers) {
             // @ts-ignore

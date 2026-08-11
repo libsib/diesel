@@ -67,7 +67,6 @@ export default class Diesel {
   staticFiles: any | undefined;
   user_jwt_secret: string | undefined;
   baseApiUrl: string;
-  private enableFileRouter: boolean;
   idleTimeOut: number;
   routeNotFoundFunc: (
     c: Context,
@@ -110,7 +109,6 @@ export default class Diesel {
       routerInstance,
       errorFormat = "json",
       platform = "bun",
-      enableFileRouting = false,
       prefixApiUrl = "",
       baseApiUrl = "",
       jwtSecret,
@@ -138,7 +136,6 @@ export default class Diesel {
     this.fetch = this.fetch.bind(this);
     this.routes = {};
     this.idleTimeOut = idleTimeOut ?? 10;
-    this.enableFileRouter = enableFileRouting ?? false;
     this.baseApiUrl = baseApiUrl || "";
     this.user_jwt_secret = jwtSecret || process.env.DIESEL_JWT_SECRET;
     this.tempRoutes = new Map<string, TempRouteEntry>();

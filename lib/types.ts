@@ -164,7 +164,6 @@ export type errorFormat = 'json' | 'text' | 'html' | string
 export interface DieselOptions {
     jwtSecret?: string;
     baseApiUrl?: string;
-    enableFileRouting?: boolean;
     idleTimeOut?: number;
     prefixApiUrl?: string;
     onError?: boolean;

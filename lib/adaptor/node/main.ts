@@ -1,4 +1,7 @@
 import * as http from 'node:http'
+import { connInfo, type ConnInfo } from './conninfo'
+
+export { connInfo, type ConnInfo }
 
 export interface options {
     fetch: (req: Request, ...args: any) => Response | Promise<Response>
