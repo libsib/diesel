@@ -113,7 +113,7 @@ export default class Diesel {
     });
 
     const {
-      router = "peepal",
+      router = "t2",
       routerInstance,
       errorFormat = "json",
       platform = "bun",
