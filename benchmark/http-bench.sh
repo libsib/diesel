@@ -91,15 +91,17 @@ run_benchmark() {
   # warm-up
   section "Warm-up (${WARMUP}s)"
   wrk -t2 -c50 -d"${WARMUP}s" "${BENCH_URL}/" > /dev/null 2>&1 || true
-  sleep 0.3
+  sleep 1.0
 
   # wrk
   section "wrk  (-t${WRK_THREADS} -c${CONNECTIONS} -d${DURATION}s --latency)"
   wrk -t"${WRK_THREADS}" -c"${CONNECTIONS}" -d"${DURATION}s" --latency "${BENCH_URL}/" || true
+  sleep 1.0
 
   # autocannon
   section "autocannon  (-c ${CONNECTIONS} -d ${DURATION})"
   autocannon --connections "${CONNECTIONS}" --duration "${DURATION}" "${BENCH_URL}/" || true
+  sleep 1.0
 
   # oha
   section "oha  (-c ${CONNECTIONS} -z ${DURATION}s)"
