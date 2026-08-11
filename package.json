@@ -31,9 +31,9 @@
       "require": "./dist/middlewares/logger/logger.js"
     },
     "./filesave": {
-      "types": "./dist/middlewares/filesave/filesave.d.ts",
-      "import": "./dist/middlewares/filesave/filesave.js",
-      "require": "./dist/middlewares/filesave/filesave.js"
+      "types": "./dist/middlewares/filesave/savefile.d.ts",
+      "import": "./dist/middlewares/filesave/savefile.js",
+      "require": "./dist/middlewares/filesave/savefile.js"
     },
     "./ratelimit": {
       "types": "./dist/middlewares/ratelimit/rate-limit.d.ts",
