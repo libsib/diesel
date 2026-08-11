@@ -2,7 +2,7 @@
 
 # ──────────────────────────────────────────────
 #  HTTP Framework Benchmark
-#  Frameworks : diesel · hono · elysia · express · fastify
+#  Frameworks : diesel · hono · elysia · express · fastify · h3
 #  Tools      : wrk · autocannon · oha
 # ──────────────────────────────────────────────
 
@@ -10,7 +10,7 @@ set -euo pipefail
 
 BENCH_PORT=${PORT:-3000}
 BENCH_URL="http://127.0.0.1:${BENCH_PORT}"
-DURATION=${DURATION:-10}
+DURATION=${DURATION:-3}
 CONNECTIONS=${CONNECTIONS:-100}
 WRK_THREADS=${WRK_THREADS:-4}
 WARMUP=2
@@ -112,13 +112,14 @@ run_benchmark() {
 }
 
 # ── framework list (parallel arrays, bash 3 compatible) ──
-FW_NAMES=("diesel"  "hono"  "elysia"  "express"  "fastify")
+FW_NAMES=("diesel"  "hono"  "elysia"  "express"  "fastify"  "h3")
 FW_CMDS=(
   "bun run ${SCRIPT_DIR}/src/diesel.ts"
   "bun run ${SCRIPT_DIR}/src/hono.ts"
   "bun run ${SCRIPT_DIR}/src/elysia.ts"
   "bun run ${SCRIPT_DIR}/src/express.ts"
   "bun run ${SCRIPT_DIR}/src/fastify.js"
+  "bun run ${SCRIPT_DIR}/src/h3.ts"
 )
 
 # ── arg parsing ───────────────────────────────
