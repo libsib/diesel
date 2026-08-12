@@ -1,4 +1,4 @@
-[![Downloads](https://img.shields.io/npm/dm/@nativecn/cli.svg)](https://www.npmjs.com/package/diesel-core)
+[![Downloads](https://img.shields.io/npm/dm/diesel-core.svg)](https://www.npmjs.com/package/diesel-core)
 
 ### [Read the docs](https://diesel-core.vercel.app/)
 
@@ -312,7 +312,7 @@ app.get("/set-cookie", async(ctx:ContextType) => {
 # Render a HTML page
 ```javascript
 app.get("/render",async (ctx) => {
-  return ctx.file(`${import.meta.dir}/index.html`)
+  return ctx.file(`${import.meta.dirname}/index.html`)
 })
 ```
 # redirect
