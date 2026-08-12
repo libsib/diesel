@@ -5,7 +5,7 @@
     "": {
       "name": "diesel-core",
       "dependencies": {
-        "peepal-router": "^0.5.0",
+        "peepal-router": "^0.5.1",
         "uuid": "^11.1.0",
       },
       "devDependencies": {
@@ -31,7 +31,7 @@
 
     "bun-types": ["bun-types@1.2.5", "", { "dependencies": { "@types/node": "*", "@types/ws": "~8.5.10" } }, "sha512-3oO6LVGGRRKI4kHINx5PIdIgnLRb7l/SprhzqXapmoYkFl5m4j6EvALvbDVuuBFaamB46Ap6HCUxIXNLCGy+tg=="],
 
-    "peepal-router": ["peepal-router@0.5.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-j0FWuwLnXJGVftRfLsyMzI7EouzRnQR0Ln5a3ngP+SLnP+6Z80QN8nuVAyfztcdolV4HGvGgfpcq7ayswOSXLg=="],
+    "peepal-router": ["peepal-router@0.5.1", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-Iusjz6ClNsOi4zH7orKA2v/k4UML1AA92x0OQYzut9xqgUyA+QLnbaviPojUw8w2lHkf7nreOkznrk/cV7hb+w=="],
 
     "typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
