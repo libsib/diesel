@@ -7,9 +7,9 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Diesel',
-			social: {
-				github: 'https://github.com/pradeepbgs/diesel',
-			},
+			social: [
+				{ icon: 'github', label: 'GitHub', href: 'https://github.com/exvillager/diesel' },
+			],
 			sidebar: [
 				{
 					label: 'Getting-Started',
