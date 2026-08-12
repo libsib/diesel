@@ -163,6 +163,6 @@ app.listen(3000, () => console.log("diesel running on 3000"))
 
 // Bun.serve({
 //     port: 3000,
-//     fetch: app.fetch() as any
+//     fetch: app.fetch as any
 // })
 

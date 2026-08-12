@@ -22,7 +22,7 @@ describe('powered-by middleware testing', () => {
     let server: ReturnType<typeof Bun.serve>;
 
     beforeAll(() => {
-        server = Bun.serve({ port: 3008, fetch: app.fetch() })
+        server = Bun.serve({ port: 3008, fetch: app.fetch })
     })
     afterAll(() => {
         server.stop(true)

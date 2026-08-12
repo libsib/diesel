@@ -26,7 +26,7 @@ describe('rate limit testing', () => {
     app.get("/", (ctx:ContextType) => ctx.send("Success"));
     app.get("/redis", (ctx:ContextType) => ctx.send('Success'))
     let server: ReturnType<typeof Bun.serve>;
-    beforeAll(() => { server = Bun.serve({ port: 3008, fetch: app.fetch() }) })
+    beforeAll(() => { server = Bun.serve({ port: 3008, fetch: app.fetch }) })
     afterAll(() => server.stop(true))
 
     it("should allow requests within the limit", async () => {

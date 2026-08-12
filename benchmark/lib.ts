@@ -35,7 +35,7 @@ for (let i = 0; i < ROUTE_COUNT; i++) {
   });
 }
 
-const dieselFetch = diesel.fetch();
+const dieselFetch = diesel.fetch;
 
 // choose a mid-tree route
 const dieselReq = new Request("http://localhost:3000/api/user/2500/profile");

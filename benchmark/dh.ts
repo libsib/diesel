@@ -46,7 +46,7 @@ const FRAMEWORK = process.env.FRAMEWORK || "diesel"; // "hono" or "diesel"
 const handler =
   FRAMEWORK === "hono"
     ? honoApp.fetch.bind(honoApp)
-    : dieselApp.fetch().bind(dieselApp);
+    : dieselApp.fetch.bind(dieselApp);
 
 const server = http.createServer(async (req, res) => {
   try {

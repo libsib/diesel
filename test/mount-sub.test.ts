@@ -47,7 +47,7 @@ app.mount("/external/*", async (req: Request) => {
 let server: ReturnType<typeof Bun.serve>;
 
 beforeAll(() => {
-  server = Bun.serve({ port, fetch: app.fetch() });
+  server = Bun.serve({ port, fetch: app.fetch });
 });
 
 afterAll(() => {

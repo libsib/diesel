@@ -157,5 +157,5 @@ app.any("*", (ctx) => ctx.json({ error: "Not Found" }, 404));
 
 
 export default {
-    fetch: app.fetch()
+    fetch: app.fetch
 }

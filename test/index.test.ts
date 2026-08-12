@@ -5,7 +5,7 @@ const port = process.env.PORT || 3000
 let server: ReturnType<typeof Bun.serve>;
 
 beforeAll(async () => {
-  server = Bun.serve({ port, fetch: app.fetch() })
+  server = Bun.serve({ port, fetch: app.fetch })
   console.log('Server running on '+port)
 })
 afterAll(async () => {

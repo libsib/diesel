@@ -11,6 +11,6 @@ new Diesel({
 
 
 serve({
-    fetch: app.fetch(),
+    fetch: app.fetch,
     port: 3000
 })

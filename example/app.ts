@@ -262,7 +262,7 @@ const shutdown = (): any => {
 app.get('/api/user', (ctx) => { return ctx.send("GETTT user") })
 app.post('/api/user', (ctx) => { return ctx.send("Send posstt user") })
 
-const fetchapp = app.fetch()
+const fetchapp = app.fetch
 Bun.serve({
   port,
   routes: {

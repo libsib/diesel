@@ -38,7 +38,7 @@ describe("CORS Middleware", () => {
     let server: ReturnType<typeof Bun.serve>;
 
     beforeAll(() => {
-        server = Bun.serve({ port: 3005, fetch: app.fetch() });
+        server = Bun.serve({ port: 3005, fetch: app.fetch });
         console.log("server started");
     });
 

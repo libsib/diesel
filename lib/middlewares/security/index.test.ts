@@ -13,7 +13,7 @@ describe("security middleware test", () => {
   let server: ReturnType<typeof Bun.serve>;
 
   beforeAll(() => {
-    server = Bun.serve({ port: 3000, fetch: app.fetch() });
+    server = Bun.serve({ port: 3000, fetch: app.fetch });
   });
 
   afterAll(() => {

@@ -86,6 +86,18 @@ export default class Diesel {
   propfind!: RouteHandler;
   all!: RouteHandler;
 
+  /**
+   * `.fetch` is the entry point of your app — pass it directly to a server,
+   * e.g. `Bun.serve({ fetch: app.fetch })` or `export default { fetch: app.fetch }`.
+   * For Cloudflare Workers use `cfFetch()` instead.
+   *
+   * Backed by a self-replacing getter: the first time this property is read,
+   * it builds the real handler (freeing `tempRoutes`/`tempMiddlewares` in the
+   * process) and replaces itself on the instance with that plain function, so
+   * there is zero wrapper overhead on any request after the first read.
+   */
+  declare fetch: DieselFetchHandler;
+
   constructor(options: DieselOptions = {}) {
     supportedMethods.forEach((method) => {
       (this as any)[method.toLocaleLowerCase()] = (
@@ -124,7 +136,7 @@ export default class Diesel {
     this.errorFormat = errorFormat;
 
     this.prefixApiUrl = prefixApiUrl ?? "";
-    this.fetch = this.fetch.bind(this);
+    this.#defineFetch();
     this.routes = {};
     this.idleTimeOut = idleTimeOut ?? 10;
     this.baseApiUrl = baseApiUrl || "";
@@ -376,8 +388,25 @@ export default class Diesel {
     };
   }
 
+  #defineFetch(): void {
+    Object.defineProperty(this, "fetch", {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        const built = this.#buildFetchHandler();
+        Object.defineProperty(this, "fetch", {
+          value: built,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+        return built;
+      },
+    });
+  }
+
   // NORMAL WAY WITH BUN/NODE/DENO — for Cloudflare Workers use cfFetch() instead.
-  fetch() {
+  #buildFetchHandler() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
 
@@ -568,7 +597,7 @@ export default class Diesel {
     const fetchHandler =
       typeof instance === "function"
         ? instance
-        : (instance.fetch() as DieselFetchHandler);
+        : (instance.fetch as DieselFetchHandler);
 
     const handler = async (ctx: Context) => {
       const path = ctx.path?.slice(prefixLength) || "/";

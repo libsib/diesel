@@ -14,7 +14,7 @@ describe("jwt test middleware", () => {
     let server: ReturnType<typeof Bun.serve>;
 
     beforeAll(() => {
-        server = Bun.serve({ port: 3007, fetch: app.fetch() });
+        server = Bun.serve({ port: 3007, fetch: app.fetch });
     });
 
     afterAll(() => server.stop(true));

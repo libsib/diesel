@@ -32,7 +32,7 @@ describe("FileSaveMidlleware", () => {
     let server: ReturnType<typeof Bun.serve>;
 
     beforeAll(() => {
-        server = Bun.serve({ port: 3006, fetch: app.fetch() });
+        server = Bun.serve({ port: 3006, fetch: app.fetch });
         console.log("server started");
     });
 
