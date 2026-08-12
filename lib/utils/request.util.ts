@@ -1,5 +1,5 @@
 import { promises as fsPromises } from "node:fs";
-import { ContextType, handlerFunction, HookType, RuntimeServer } from "../types";
+import { ContextType, handlerFunction, HookType } from "../types";
 import { getMimeType } from "./mimeType";
 import { isPromise, isResponse } from "./promise";
 import Diesel from "../main";
@@ -51,17 +51,6 @@ export async function runMiddlewares(diesel: Diesel, pathname: string, ctx: Cont
 }
 
 
-export async function executeBunMiddlewares(
-  middlewares: Function[],
-  req: Request,
-  server: RuntimeServer) {
-
-  for (const middleware of middlewares) {
-    const result = await middleware(req, server);
-    if (result) return result;
-  }
-}
-
 export async function runFilter(diesel: Diesel, path: string, ctx: ContextType) {
   const filterResponse = await handleFilterRequest(diesel, path, ctx);
   const finalResult = isPromise(filterResponse) ? await filterResponse : filterResponse;
@@ -80,24 +69,6 @@ export async function handleFilterRequest(
     if (diesel.filterFunction?.length) {
       for (const filterFunction of diesel.filterFunction) {
         const filterResult = await filterFunction(ctx);
-        if (filterResult) return filterResult;
-      }
-    } else {
-      return Response.json({ error: "Protected route, authentication required" }, { status: 401 });
-    }
-  }
-}
-
-export async function handleBunFilterRequest(
-  diesel: Diesel,
-  path: string,
-  req: Request,
-  server: RuntimeServer) {
-
-  if (!diesel.filters!.has(path)) {
-    if (diesel.filterFunction?.length) {
-      for (const filterFunction of diesel.filterFunction) {
-        const filterResult = await filterFunction(req as any, server);
         if (filterResult) return filterResult;
       }
     } else {
