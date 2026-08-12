@@ -88,6 +88,17 @@ export default class Diesel {
   propfind!: RouteHandler;
   all!: RouteHandler;
 
+  /**
+   * `.fetch` is the entry point of your app — pass it directly to a server,
+   * e.g. `Bun.serve({ fetch: app.fetch })` or `export default { fetch: app.fetch }`.
+   *
+   * Backed by a self-replacing getter: the first time this property is read,
+   * it builds the real handler (freeing `tempRoutes`/`tempMiddlewares` in the
+   * process) and replaces itself on the instance with that plain function, so
+   * there is zero wrapper overhead on any request after the first read.
+   */
+  declare fetch: DieselFetchHandler;
+
   constructor(options: DieselOptions = {}) {
     supportedMethods.forEach((method) => {
       (this as any)[method.toLocaleLowerCase()] = (
@@ -128,7 +139,7 @@ export default class Diesel {
     this.errorFormat = errorFormat;
 
     this.prefixApiUrl = prefixApiUrl ?? "";
-    this.fetch = this.fetch.bind(this);
+    this.#defineFetch();
     this.routes = {};
     this.idleTimeOut = idleTimeOut ?? 10;
     this.baseApiUrl = baseApiUrl || "";
@@ -320,7 +331,7 @@ export default class Diesel {
       port,
       hostname,
       idleTimeOut: this.idleTimeOut,
-      fetch: this.fetch(),
+      fetch: this.fetch,
     };
 
     if (this.staticFiles) ServerOptions.static = this.staticFiles;
@@ -361,17 +372,36 @@ export default class Diesel {
     };
   }
 
-  fetch() {
+  #defineFetch(): void {
+    Object.defineProperty(this, "fetch", {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        console.log("building")
+        const built = this.#buildFetchHandler();
+        Object.defineProperty(this, "fetch", {
+          value: built,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+        return built;
+      },
+    });
+  }
+
+  #buildFetchHandler() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
+
     // if user is using for cloudflare workers
     if (this.platform === "cf" || this.platform === "cloudflare") {
       if (this.#newPipelineArchitecture) {
         const pipeline = buildRequestPipeline(this as any);
         return (
           req: Request,
-          env: Record<string, string>,
-          executionContext: any,
+          env?: Record<string, string>,
+          executionContext?: any,
         ) => {
           return pipeline(req, this, undefined, env, executionContext).catch(
             async (error: any) => {
@@ -580,7 +610,7 @@ export default class Diesel {
     const fetchHandler =
       typeof instance === "function"
         ? instance
-        : (instance.fetch() as DieselFetchHandler);
+        : (instance.fetch as DieselFetchHandler);
 
     const handler = async (ctx: Context) => {
       const path = ctx.path?.slice(prefixLength) || "/";
