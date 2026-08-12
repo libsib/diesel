@@ -610,7 +610,7 @@ export default class Diesel {
     const fetchHandler =
       typeof instance === "function"
         ? instance
-        : (instance.fetch() as DieselFetchHandler);
+        : (instance.fetch as DieselFetchHandler);
 
     const handler = async (ctx: Context) => {
       const path = ctx.path?.slice(prefixLength) || "/";
