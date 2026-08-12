@@ -56,7 +56,6 @@ You can pass options to the `Diesel` constructor to configure its behaviour:
 ```typescript
 const app = new Diesel({
   logger: true,             // enable built-in request/response logger
-  platform: "standard",     // "standard" (default, Bun/Node/Deno) | "cf" (Cloudflare Workers)
   errorFormat: "json",      // "json" (default) | "text"
   jwtSecret: "my-secret",   // secret used by authenticateJwt / authenticateJwtDB
   idleTimeOut: 10,          // Bun server idle timeout in seconds

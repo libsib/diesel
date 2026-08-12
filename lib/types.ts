@@ -176,7 +176,6 @@ export interface DieselOptions {
     onError?: boolean;
     pipelineArchitecture?: boolean;
     errorFormat?: errorFormat
-    platform?: string;
     router?: string;
     routerInstance?: Router;
 }

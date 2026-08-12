@@ -75,7 +75,6 @@ export default class Diesel {
   #newPipelineArchitecture: boolean = false;
   emitter: undefined | EventEmitter;
   errorFormat: errorFormat;
-  platform: string = "standard";
   // tha path of static files
   staticPath: any;
   // the request path where user wants static files should be server
@@ -107,7 +106,6 @@ export default class Diesel {
       router = "t2",
       routerInstance,
       errorFormat = "json",
-      platform = "standard",
       prefixApiUrl = "",
       baseApiUrl = "",
       jwtSecret,
@@ -120,7 +118,6 @@ export default class Diesel {
     else this.router = RouterFactory.create(router);
 
     this.errorFormat = errorFormat;
-    this.platform = platform;
 
     if (!Diesel.instance) {
       Diesel.instance = this;
@@ -463,42 +460,30 @@ export default class Diesel {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
 
+    if (this.#newPipelineArchitecture) {
+      const pipeline = buildRequestPipeline(this as any);
+      return (
+        req: Request,
+        env: Record<string, string>,
+        executionContext: any,
+      ) => {
+        return pipeline(req, this, undefined, env, executionContext).catch(
+          async (error: any) => {
+            return this.handleError(error, getPath(req.url), req);
+          },
+        );
+      };
+    }
+
     return (request: Request, env: Record<string, any>, executionCtx: any) => {
       return this.#handleRequests(request, undefined, env, executionCtx);
     };
   }
 
+  // NORMAL WAY WITH BUN/NODE/DENO — for Cloudflare Workers use cfFetch() instead.
   fetch() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
-    // if user is using for cloudflare workers
-    if (this.platform === "cf" || this.platform === "cloudflare") {
-      if (this.#newPipelineArchitecture) {
-        const pipeline = buildRequestPipeline(this as any);
-        return (
-          req: Request,
-          env: Record<string, string>,
-          executionContext: any,
-        ) => {
-          return pipeline(req, this, undefined, env, executionContext).catch(
-            async (error: any) => {
-              return this.handleError(error, getPath(req.url), req);
-            },
-          );
-        };
-      }
-
-      // cloudflare handler
-      return (
-        request: Request,
-        env?: Record<string, any>,
-        executionContext?: any,
-      ) => {
-        return this.#handleRequests(request, undefined, env, executionContext);
-      };
-    }
-
-    // NORMAL WAY WITH BUN/NODE/DENO
 
     if (this.#newPipelineArchitecture) {
       const execute_handler = build_request_pipeline_latest(this);
