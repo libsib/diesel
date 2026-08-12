@@ -1,5 +1,4 @@
 import path from "path";
-import { v4 as uuid4 } from "uuid";
 import * as fs from "fs";
 import { ContextType } from "../../types";
 
@@ -26,7 +25,7 @@ export const fileSaveMiddleware = (options: { dest?: string, fields?: string[] }
                 const file = body[field]
                 if (!file.name) continue;
                 
-                const filename = `${field}_${uuid4()}${path.extname(file?.name)}`
+                const filename = `${field}_${crypto.randomUUID()}${path.extname(file?.name)}`
                 const savefilepath = path.join(uploadDir,filename)
 
                 await Bun.write(savefilepath, await file.arrayBuffer())
