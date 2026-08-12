@@ -331,7 +331,7 @@ export default class Diesel {
       port,
       hostname,
       idleTimeOut: this.idleTimeOut,
-      fetch: this.fetch(),
+      fetch: this.fetch,
     };
 
     if (this.staticFiles) ServerOptions.static = this.staticFiles;
