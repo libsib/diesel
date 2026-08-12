@@ -13,4 +13,4 @@ app.get("/", (c: ContextType) => {
 
 
 
-app.listen(3000)
+Bun.serve({ fetch: app.fetch, port: 3000 })

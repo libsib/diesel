@@ -9,11 +9,12 @@
 set -euo pipefail
 
 BENCH_PORT=${PORT:-3000}
+BENCH_PATH=${BENCH_PATH:-"/user/123"}
 BENCH_URL="http://127.0.0.1:${BENCH_PORT}"
 DURATION=${DURATION:-3}
 CONNECTIONS=${CONNECTIONS:-100}
 WRK_THREADS=${WRK_THREADS:-4}
-WARMUP=2
+WARMUP=0.5
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -53,7 +54,7 @@ kill_port() {
 
 wait_for_server() {
   local attempts=0
-  while ! curl -sf "${BENCH_URL}/" > /dev/null 2>&1; do
+  while ! curl -sf "${BENCH_URL}${BENCH_PATH}" > /dev/null 2>&1; do
     sleep 0.25
     ((attempts++))
     if [ "$attempts" -ge 40 ]; then
@@ -70,7 +71,7 @@ run_benchmark() {
 
   header "Benchmarking: ${name}"
   echo -e "  cmd         : ${cmd}"
-  echo -e "  url         : ${BENCH_URL}/"
+  echo -e "  url         : ${BENCH_URL}${BENCH_PATH}"
   echo -e "  duration    : ${DURATION}s per tool"
   echo -e "  connections : ${CONNECTIONS}"
 
@@ -90,22 +91,22 @@ run_benchmark() {
 
   # warm-up
   section "Warm-up (${WARMUP}s)"
-  wrk -t2 -c50 -d"${WARMUP}s" "${BENCH_URL}/" > /dev/null 2>&1 || true
-  sleep 1.0
+  autocannon -c 50 -d "${WARMUP}" "${BENCH_URL}${BENCH_PATH}" > /dev/null 2>&1 || true
+  sleep 0.5
 
   # wrk
   section "wrk  (-t${WRK_THREADS} -c${CONNECTIONS} -d${DURATION}s --latency)"
-  wrk -t"${WRK_THREADS}" -c"${CONNECTIONS}" -d"${DURATION}s" --latency "${BENCH_URL}/" || true
+  wrk -t"${WRK_THREADS}" -c"${CONNECTIONS}" -d"${DURATION}s" --latency "${BENCH_URL}${BENCH_PATH}" || true
   sleep 1.0
 
   # autocannon
   section "autocannon  (-c ${CONNECTIONS} -d ${DURATION})"
-  autocannon --connections "${CONNECTIONS}" --duration "${DURATION}" "${BENCH_URL}/" || true
+  autocannon --connections "${CONNECTIONS}" --duration "${DURATION}" "${BENCH_URL}${BENCH_PATH}" || true
   sleep 1.0
 
   # oha
   section "oha  (-c ${CONNECTIONS} -z ${DURATION}s)"
-  oha --no-tui -c "${CONNECTIONS}" -z "${DURATION}s" "${BENCH_URL}/" || true
+  oha --no-tui -c "${CONNECTIONS}" -z "${DURATION}s" "${BENCH_URL}${BENCH_PATH}" || true
 
   kill "${server_pid}" 2>/dev/null || true
   wait "${server_pid}" 2>/dev/null || true
@@ -134,10 +135,11 @@ usage() {
   echo "  (no args   → run all frameworks)"
   echo ""
   echo "  Options:"
-  echo "    --duration    N   seconds per tool  (default: ${DURATION})"
-  echo "    --connections N   concurrent conns  (default: ${CONNECTIONS})"
-  echo "    --threads     N   wrk threads       (default: ${WRK_THREADS})"
-  echo "    --port        N   server port       (default: ${BENCH_PORT})"
+  echo "    --path        PATH route path to test  (default: ${BENCH_PATH})"
+  echo "    --duration    N    seconds per tool   (default: ${DURATION})"
+  echo "    --connections N    concurrent conns   (default: ${CONNECTIONS})"
+  echo "    --threads     N    wrk threads        (default: ${WRK_THREADS})"
+  echo "    --port        N    server port        (default: ${BENCH_PORT})"
   exit 0
 }
 
@@ -152,10 +154,11 @@ is_known_fw() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h)     usage ;;
+    --path)        BENCH_PATH="$2";  shift 2 ;;
     --duration)    DURATION="$2";    shift 2 ;;
     --connections) CONNECTIONS="$2"; shift 2 ;;
     --threads)     WRK_THREADS="$2"; shift 2 ;;
-    --port)        BENCH_PORT="$2"; BENCH_URL="http://127.0.0.1:${BENCH_PORT}"; shift 2 ;;
+    --port)        BENCH_PORT="$2";  BENCH_URL="http://127.0.0.1:${BENCH_PORT}"; shift 2 ;;
     -*)            err "Unknown flag: $1"; usage ;;
     *)
       if is_known_fw "$1"; then
@@ -176,6 +179,7 @@ check_deps
 echo -e "\n${BOLD}HTTP Framework Benchmark${RESET}"
 echo -e "  frameworks  : ${SELECTED[*]}"
 echo -e "  port        : ${BENCH_PORT}"
+echo -e "  path        : ${BENCH_PATH}"
 echo -e "  duration    : ${DURATION}s per tool"
 echo -e "  connections : ${CONNECTIONS}"
 echo -e "  wrk threads : ${WRK_THREADS}"

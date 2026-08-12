@@ -41,4 +41,4 @@ app.get("/user/:id/post/:postId", (c: Context) => {
   return c.json({ userId: c.params.id, postId: c.params.postId });
 });
 
-app.listen(PORT);
+Bun.serve({ fetch: app.fetch, port: PORT });

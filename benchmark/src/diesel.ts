@@ -23,4 +23,8 @@ app.get("/user/:id/post/:postId", (c: Context) => {
   return c.json({ userId: c.params.id, postId: c.params.postId });
 });
 
-app.listen(PORT);
+console.log(`diesel is running on port ${PORT}`)
+Bun.serve({
+  fetch: app.fetch,
+  port: PORT,
+})
