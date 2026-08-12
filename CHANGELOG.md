@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.1
+
+Docs-only release — no code changes.
+
+- README rewritten for 3.0's API (`.fetch` as a property, `cfFetch()` for Cloudflare, `listen()`/`close()` removed, `filter` middleware replacing `setupFilter()`), and now documents Bun/Node/Deno/Cloudflare Workers support with a Deno example.
+- Fixed the npm downloads badge (was pointing at an unrelated package) and swapped the Bun-only `import.meta.dir` example for the portable `import.meta.dirname`.
+- Docs site (astro.build) bumped from Astro 4 to 7 / Starlight 0.28 to 0.41.
+
 ## 3.0.0
 
 ### Breaking changes
