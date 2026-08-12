@@ -104,15 +104,16 @@ app.use(cors({
 ```
 
 # Filter and Route Security
-**Diesel** provides a simple way to manage public and protected routes using the `setupFilter()` method. You can define specific routes to be publicly accessible, while all other routes require authentication or custom middleware.
+**Diesel** provides a `filter` middleware (`diesel-core/filter`) to manage public and protected routes. You register it like any other middleware via `app.use()`: list which routes are publicly accessible, and every other route runs through your authentication middleware.
 
 ### How to Use the Filter
-The **setupFilter()** method allows you to secure certain endpoints while keeping others open. Specify routes that should be publicly accessible using `publicRoutes()` + `permitAll()`, and apply authentication middleware to the remaining routes with `authenticate()`.
+Import `filter` from `diesel-core/filter` and pass it to `app.use()`. Use `publicRoutes` for routes that should skip authentication, and `authenticate` for the middleware(s) that guard everything else.
 
 
 ### Example Usage
 ```typescript
 import { Diesel } from "diesel-core";
+import { filter } from "diesel-core/filter";
 import jwt from 'jsonwebtoken';
 
 const app = new Diesel();
@@ -130,12 +131,11 @@ async function authJwt(ctx: ContextType): Promise<void | Response> {
   }
 }
 
-// Define routes and apply filter
-app
-  .setupFilter()
-  .publicRoutes('/api/user/register', '/api/user/login', '/test/:id', '/cookie')
-  .permitAll()
-  .authenticate([authJwt]);
+// Public routes skip authJwt entirely; everything else runs through it
+app.use(filter({
+  publicRoutes: ['/api/user/register', '/api/user/login', '/cookie'],
+  authenticate: [authJwt],
+}));
 
 // Public route (no auth required)
 app.get("/api/user/register", async (ctx: ContextType) => {
@@ -153,36 +153,36 @@ app.listen(port, () => {
   console.log(`Diesel is running on port ${port}`);
 });
 ```
-# Filter Methods
-1. **publicRoutes(...routes: string[])** : Routes passed here are ***public*** and require no authentication, including those with dynamic parameters (e.g., /test/:id).
+# Filter Options
+1. **publicRoutes: string[]** : Routes listed here are ***public*** and skip `authenticate` entirely. Matched by path prefix.
 
 ```javascript 
-.publicRoutes('/api/user/register', '/api/user/login', '/test/:id')
+filter({ publicRoutes: ['/api/user/register', '/api/user/login'] })
 ```
-2. **permitAll()** : Marks the routes specified in `publicRoutes()` as publicly accessible, bypassing authentication middleware.
+2. **authenticate: middlewareFunc[]** : One or more middleware functions, run in order, on every route not listed in `publicRoutes`.
 
+*Note* : If `authenticate` is empty and the route isn't public, `filter` returns an "Unauthorized" response by default.
 ```javascript 
-.permitAll()
-```
-3. **authenticate([fnc?: middlewareFunc])** : Applies one or more authentication middleware functions to all routes not listed in `publicRoutes()`.
+filter({ authenticate: [authJwt] })
 
-*Note* : If you don't pass a middleware function to `authenticate()`, DieselJS will return an "Unauthorized" response by default.
-```javascript 
-.authenticate([authJwt])
-
-.authenticate([authJwt, rateLimiter]) // chain multiple auth middlewares
+filter({ authenticate: [authJwt, rateLimiter] }) // chain multiple auth middlewares
 ```
-4. **authenticateJwt(jwt)** : Built-in JWT filter. Requires `jwtSecret` set in `DieselOptions`. Sets `ctx.get("user")` automatically.
+3. **Combining with `diesel-core/jwt`** : Use the built-in JWT helper as one of your `authenticate` middlewares instead of writing your own.
 
 ```javascript
+import { authenticateJwt } from "diesel-core/jwt";
+
 const app = new Diesel({ jwtSecret: "your-secret" });
-app.setupFilter().publicRoutes('/login').permitAll().authenticateJwt(jwt);
+app.use(filter({
+  publicRoutes: ['/login'],
+  authenticate: [authenticateJwt({ app, jwt })],
+}));
 ```
 
 ## Use Case
- * **Public Routes** :  Routes like `/api/user/register` or `/api/user/login` are open to all users. Add them with `publicRoutes()` + `permitAll()`.
+ * **Public Routes** :  Routes like `/api/user/register` or `/api/user/login` are open to all users. List them in `publicRoutes`.
 
- * **Protected Routes** : All other routes require authentication via `authenticate([authJwt])` or `authenticateJwt(jwt)`.
+ * **Protected Routes** : All other routes run through `authenticate`, e.g. `authenticate: [authJwt]` or `authenticate: [authenticateJwt({...})]` from `diesel-core/jwt`.
 
 # Using Hooks in DieselJS
 

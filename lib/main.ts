@@ -4,7 +4,6 @@ import {
   DieselFetchHandler,
   DieselOptions,
   errorFormat,
-  FilterMethods,
   HookFunction,
   HookType,
   listenArgsT,
@@ -59,10 +58,6 @@ export default class Diesel {
   hasOnError: boolean;
   hooks: Hooks;
   corsConfig: corsT;
-  FilterRoutes: string[] | null | undefined;
-  filters: Set<string> | undefined;
-  filterFunction: Function[] | null;
-  hasFilterEnabled: boolean;
   private serverInstance: Server | null;
   staticFiles: any | undefined;
   user_jwt_secret: string | undefined;
@@ -162,8 +157,6 @@ export default class Diesel {
         console.log("Request Path:", path);
       });
 
-    this.filterFunction = null;
-    this.hasFilterEnabled = false;
     this.serverInstance = null;
     this.staticPath = null;
     this.routeNotFoundFunc = () => {};
@@ -196,103 +189,6 @@ export default class Diesel {
         };
       },
     });
-  }
-
-  /**
-   this filter is like user once specify which routes needs to be public and for rest routes use a global
-    auth middleware .
-
-    and this provides built in middleware to authenticate using jwt
-  */
-  setupFilter(): FilterMethods {
-    this.hasFilterEnabled = true;
-    if (!this.filters) this.filters = new Set();
-    if (!this.filterFunction) this.filterFunction = [];
-
-    return {
-      publicRoutes: (...routes: string[]) => {
-        this.FilterRoutes = routes;
-        return this.setupFilter();
-      },
-
-      permitAll: () => {
-        for (let route of this.FilterRoutes!) {
-          if (route.endsWith("/")) {
-            route = route.slice(0, -1);
-          }
-          this.filters!.add(route);
-        }
-        return this.setupFilter();
-      },
-
-      authenticate: (fnc?: Function[] | middlewareFunc[]) => {
-        if (fnc?.length) {
-          const wrapper = async (ctx: Context, server: Server) => {
-            const pathname = ctx.path!;
-            for (const pub of this.filters!) {
-              if (pathname.startsWith(pub)) return;
-            }
-
-            for (const fn of fnc) {
-              const resp = await fn(ctx, server);
-              if (resp) return resp;
-            }
-          };
-          this.router.addMiddleware("/", [wrapper]);
-        }
-      },
-
-      // Pass the middleware builder (e.g. `authenticateJwtMiddleware` from
-      // "diesel-core/jwt") so core doesn't carry JWT verification code for
-      // apps that never use it.
-      authenticateJwt: (
-        buildJwtAuth: (
-          jwt: any,
-          secret: string,
-        ) => (ctx: Context) => Response | Promise<Response | void> | void,
-        jwt: any,
-      ) => {
-        if (!this.user_jwt_secret)
-          throw new Error(
-            "You must provide jwtSecret in Diesel Options to use authenticateJwt",
-          );
-        const wrapper = async (ctx: Context) => {
-          const pathname = ctx.path!;
-          for (const pub of this.filters!) {
-            if (pathname.startsWith(pub)) return;
-          }
-
-          const res = buildJwtAuth(jwt, this.user_jwt_secret!)(ctx);
-          if (res) return res;
-        };
-        this.router.addMiddleware("/", wrapper);
-      },
-
-      authenticateJwtDB: (
-        buildJwtDbAuth: (
-          jwt: any,
-          User: any,
-          secret: string,
-        ) => (ctx: Context) => Response | Promise<Response | void> | void,
-        jwt: any,
-        User: any,
-      ) => {
-        if (!this.user_jwt_secret)
-          throw new Error(
-            "You must provide jwtSecret in Diesel Options to use authenticateJwt",
-          );
-        const wrapper = async (ctx: Context) => {
-          const pathname = ctx.path!;
-          for (const pub of this.filters!) {
-            if (pathname.startsWith(pub)) return;
-          }
-
-          const res = buildJwtDbAuth(jwt, User, this.user_jwt_secret!)(ctx);
-          if (res) return res;
-        };
-        this.router.addMiddleware("/", wrapper);
-      },
-    };
   }
 
   // for redirect on a specific path
