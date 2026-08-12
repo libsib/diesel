@@ -7,9 +7,9 @@
 # DieselJS
 
 
-**Diesel** is a simple and lightweight HTTP server library for Bun.js that provides you with complete control over your API routes and middleware. It is designed to be intuitive and efficient, allowing you to quickly set up a server, define routes, and optimize important paths for faster response times. started this on 5th october 2024
+**Diesel** is a simple and lightweight HTTP server library built on Web Standards (`Request`/`Response`), giving you complete control over your API routes and middleware. It is designed to be intuitive and efficient, allowing you to quickly set up a server, define routes, and optimize important paths for faster response times. Started this on 5th october 2024
 
-**Now Supports Node.js & Cloduflare adaptors**
+**Runs on Bun, Node.js, Deno, and Cloudflare Workers**
 
 
 ## Installation
@@ -34,10 +34,12 @@ app.get("/", async (ctx:ContextType) => {
  // Note :- passing statusCode is optional
 })
 
-// Start the server
-app.listen(port, () => {
-  console.log(`diesel is running on port ${port}`)
+// Start the server (Bun)
+Bun.serve({
+  port,
+  fetch: app.fetch,
 })
+console.log(`diesel is running on port ${port}`)
 ```
 # HttpMethods 
 **In Diesel there are almost all http methods that you can use**
@@ -82,9 +84,22 @@ new Diesel({
 
 
 serve({
-    fetch: app.fetch(),
+    fetch: app.fetch,
     port: 3000
 })
+```
+
+# Deno
+
+### Diesel.js also runs on Deno — no adaptor needed, since Deno's `Deno.serve` already speaks the Fetch API
+
+```ts
+import { Diesel } from "npm:diesel-core"
+
+const app = new Diesel()
+  .get("/", (ctx) => ctx.text("hello from deno diesel"))
+
+Deno.serve({ port: 3000 }, app.fetch)
 ```
 
 # CORS
@@ -148,9 +163,8 @@ app.get("/api/user/profile", async (ctx: ContextType) => {
 });
 
 const port = 3000;
-app.listen(port, () => {
-  console.log(`Diesel is running on port ${port}`);
-});
+Bun.serve({ port, fetch: app.fetch });
+console.log(`Diesel is running on port ${port}`);
 ```
 # Filter Options
 1. **publicRoutes: string[]** : Routes listed here are ***public*** and skip `authenticate` entirely. Matched by path prefix.

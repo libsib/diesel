@@ -2,7 +2,7 @@
 title: Getting Started with Diesel
 ---
 
-Diesel is a simple and lightweight HTTP server library for Bun.js that provides you with complete control over your API routes and middleware. It is designed to be intuitive and efficient, allowing you to quickly set up a server, define routes, and optimize important paths for faster response times.
+Diesel is a simple and lightweight HTTP server library built on Web Standards that provides you with complete control over your API routes and middleware. It runs on Bun, Node.js, Deno, and Cloudflare Workers, and is designed to be intuitive and efficient, allowing you to quickly set up a server, define routes, and optimize important paths for faster response times.
 
 With built-in support for TypeScript, DieselJS ensures type safety and improved developer experience, making it easier to catch errors during development. Whether you are building a small application or a large API, DieselJS helps you manage your routes and middleware seamlessly.
 ## Quick Start
@@ -39,9 +39,8 @@ app.get("/", async (ctx:ContextType) => {
 
 
 // Start the server
-app.listen(port, () => {
-  console.log('diesel is running on port '+port)
-})
+Bun.serve({ port, fetch: app.fetch })
+console.log('diesel is running on port '+port)
 `;
 
 export const fileName = `main.ts`;
