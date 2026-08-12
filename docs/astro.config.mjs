@@ -8,7 +8,7 @@ export default defineConfig({
 		starlight({
 			title: 'Diesel',
 			social: [
-				{ icon: 'github', label: 'GitHub', href: 'https://github.com/pradeepbgs/diesel' },
+				{ icon: 'github', label: 'GitHub', href: 'https://github.com/exvillager/diesel' },
 			],
 			sidebar: [
 				{
