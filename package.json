@@ -103,14 +103,12 @@
   ],
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/ejs": "^3.1.5",
-    "@types/uuid": "^10.0.0"
+    "@types/ejs": "^3.1.5"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "peepal-router": "^0.5.1",
-    "uuid": "^11.1.0"
+    "peepal-router": "^0.5.1"
   }
 }

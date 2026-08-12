@@ -5,7 +5,6 @@ import { EMPTY_OBJ } from "./constant";
 import {
   generateErrorResponse,
   handleRouteNotFound,
-  runFilter,
   runHooks,
 } from "./utils/request.util";
 import { isPromise } from "./utils/promise";
@@ -141,14 +140,6 @@ export const buildRequestPipeline = (diesel: Diesel) => {
           )
     `);
 
-  // Filters
-  if (diesel.hasFilterEnabled) {
-    pipeline.push(`
-        const filterResponse = await runFilter(diesel, pathname, ctx);
-        if (filterResponse) return filterResponse;
-      `);
-  }
-
   // Pre-handler
   if (diesel.hasPreHandlerHook) {
     pushHooks(pipeline, PreHandlerHook, "preHandler", "ctx");
@@ -194,13 +185,12 @@ export const buildRequestPipeline = (diesel: Diesel) => {
     `;
 
   const fnc = new Function(
-    "runFilter",
     "handleRouteNotFound",
     "generateErrorResponse",
     "Context",
     "isPromise",
     fnBody,
-  )(runFilter, handleRouteNotFound, generateErrorResponse, Context, isPromise);
+  )(handleRouteNotFound, generateErrorResponse, Context, isPromise);
 
   // console.log(fnc.toString())
   return fnc;
@@ -230,9 +220,6 @@ export const BunRequestPipline = (
   // onReq hooks
   const onRequestHooks = diesel?.hasOnReqHook ? diesel.hooks.onRequest : [];
 
-  //filters
-  const hasFilter = diesel.filters?.has(path) ?? false;
-  const filterFunctions = diesel.filterFunction ?? [];
   // Hooks
   if (onRequestHooks && onRequestHooks?.length > 0) {
     pipeline.push(`
@@ -249,22 +236,6 @@ export const BunRequestPipline = (
   // (executeBunMiddlewares), which we've removed from core. Revisit as
   // part of a Bun adaptor if this global-middleware-in-pipeline path is
   // ever finished.
-
-  // filter
-  if (diesel.hasFilterEnabled) {
-    if (!hasFilter) {
-      pipeline.push(
-        `if (${filterFunctions.length}) {
-        for (const filterFunction of filterFunctions) {
-          const filterResult = await filterFunction(req, server);
-          if (filterResult) return filterResult;
-        }
-      } else {
-        return Response.json({ error: "Protected route, authentication required" }, { status: 401 });
-      }`,
-      );
-    }
-  }
 
   // method mathch
   pipeline.push(`
@@ -340,14 +311,12 @@ export const BunRequestPipline = (
   const fnc = new Function(
     "handlers",
     "runHooks",
-    "filterFunctions",
     "onRequestHooks",
     "allMiddlewares",
     fnBody,
   )(
     handlers,
     runHooks,
-    filterFunctions,
     onRequestHooks,
     // allMiddlewares
   );

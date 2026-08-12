@@ -1,7 +1,7 @@
 import { promises as fsPromises } from "node:fs";
 import { ContextType, handlerFunction, HookType } from "../types";
 import { getMimeType } from "./mimeType";
-import { isPromise, isResponse } from "./promise";
+import { isResponse } from "./promise";
 import Diesel from "../main";
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -50,32 +50,6 @@ export async function runMiddlewares(diesel: Diesel, pathname: string, ctx: Cont
   return null;
 }
 
-
-export async function runFilter(diesel: Diesel, path: string, ctx: ContextType) {
-  const filterResponse = await handleFilterRequest(diesel, path, ctx);
-  const finalResult = isPromise(filterResponse) ? await filterResponse : filterResponse;
-  if (finalResult) return finalResult;
-}
-
-export async function handleFilterRequest(
-  diesel: Diesel,
-  path: string,
-  ctx: ContextType) {
-  if (path.endsWith("/")) {
-    path = path.slice(0, -1);
-  }
-
-  if (!diesel.filters!.has(path)) {
-    if (diesel.filterFunction?.length) {
-      for (const filterFunction of diesel.filterFunction) {
-        const filterResult = await filterFunction(ctx);
-        if (filterResult) return filterResult;
-      }
-    } else {
-      return Response.json({ error: "Protected route, authentication required" }, { status: 401 });
-    }
-  }
-}
 
 export async function handleRouteNotFound(diesel: Diesel, ctx: ContextType, pathname: string): Promise<Response | undefined> {
 

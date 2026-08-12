@@ -126,20 +126,6 @@ export type corsT = {
 } | null;
 
 
-export interface FilterMethods {
-    publicRoutes: (...routes: string[]) => FilterMethods;
-    permitAll: () => FilterMethods;
-    authenticate: (fnc?: middlewareFunc[]) => Response | Promise<Response | null> | void;
-    authenticateJwt: (
-        buildJwtAuth: (jwt: any, secret: string) => (ctx: any) => any,
-        jwt: any,
-    ) => Response | Promise<Response | null> | void;
-    authenticateJwtDB: (
-        buildJwtDbAuth: (jwt: any, UserModel: any, secret: string) => (ctx: any) => any,
-        jwt: any,
-        UserModel: any,
-    ) => Response | Promise<Response | null> | void
-}
 export type listenArgsT = string | (() => void) | { cert?: string; key?: string };
 
 
@@ -162,8 +148,7 @@ export interface CompileConfig {
     hasPreHandlerHook: boolean,
     hasOnError: boolean,
     hasPostHandlerHook: boolean,
-    hasOnSendHook: boolean,
-    hasFilterEnabled: boolean
+    hasOnSendHook: boolean
 }
 
 export type errorFormat = 'json' | 'text' | 'html' | string

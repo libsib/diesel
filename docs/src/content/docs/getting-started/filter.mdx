@@ -2,28 +2,28 @@
 title: Filters and Route Security
 ---
 
-Diesel makes it easy to manage both public and protected routes using the powerful `setupFilter()` method. With `setupFilter()`, you can define specific routes as publicly accessible while enforcing authentication or custom middleware for protected routes. This approach enables fine-grained control over route security, ensuring sensitive resources are well-guarded.
+Diesel makes it easy to manage both public and protected routes using the `filter` middleware from `diesel-core/filter`. With `filter()`, you can define specific routes as publicly accessible while enforcing authentication or custom middleware for protected routes. This approach enables fine-grained control over route security, ensuring sensitive resources are well-guarded.
 
-### How to Use `setupFilter()`
+### How to Use `filter()`
 
-The `setupFilter()` method allows you to selectively secure certain endpoints while keeping others open. With `permitAll()`, you can mark specific routes as public, while `authenticate()` applies one or more middleware functions to remaining routes. This flexibility helps keep user information secure while providing accessible, unauthenticated routes as needed.
+`filter()` is a regular middleware — register it with `app.use()` like any other. Pass `publicRoutes` to mark specific routes as public, and `authenticate` with one or more middleware functions to guard everything else. This flexibility helps keep user information secure while providing accessible, unauthenticated routes as needed.
 
 ### Example Usage
-Using setupFilter() with JWT Authentication and Middleware
+Using `filter()` with JWT Authentication and Middleware
 
 ```typescript
 import { Diesel } from "diesel-core";
+import { filter } from "diesel-core/filter";
 import authJwt from "./middleware/authJwt";
 import rateLimiter from "./middleware/rateLimiter";
 
 const app = new Diesel();
 
-// Define routes and apply filters
-app
-  .setupFilter()
-  .publicRoutes("/api/user/register", "/api/user/login", "/test/:id", "/cookie") // Public routes
-  .permitAll() // Mark as public, no authentication required
-  .authenticate([authJwt, rateLimiter]); // Apply multiple middleware to protected routes
+// Define routes and apply the filter
+app.use(filter({
+  publicRoutes: ["/api/user/register", "/api/user/login", "/cookie"], // Public routes
+  authenticate: [authJwt, rateLimiter], // Apply multiple middleware to protected routes
+}));
 
 // Public route example (no authentication needed)
 app.get("/api/user/register", async (ctx: ContextType) => {
@@ -41,23 +41,24 @@ app.get("/api/user/profile", async (ctx: ContextType) => {
 ```
 
 ### Built-in JWT Authentication Filters
-**authenticateJwt()**
-`authenticateJwt(jwt)` provides an inbuilt JWT authentication filter. Once applied, you can access the user context via `ctx.get("user")`.
+**`authenticateJwt()`** from `diesel-core/jwt`
+`authenticateJwt({ app, jwt })` provides an inbuilt JWT authentication middleware you can drop straight into `filter()`'s `authenticate` array. Once applied, you can access the user context via `ctx.get("user")`.
 
 
 Example Usage:
 ```ts
 import { Diesel } from "diesel-core";
+import { filter } from "diesel-core/filter";
+import { authenticateJwt } from "diesel-core/jwt";
 import jwt from 'jsonwebtoken'
 
 const app = new Diesel({ jwtSecret: "your-secret" });
 
-// Define routes and apply filters
-app
-  .setupFilter()
-  .publicRoutes("/api/user/register", "/api/user/login", "/test/:id", "/cookie") // Public routes
-  .permitAll() // Mark as public, no authentication required
-  .authenticateJwt(jwt); // Inbuilt jwt filter
+// Define routes and apply the filter
+app.use(filter({
+  publicRoutes: ["/api/user/register", "/api/user/login", "/cookie"], // Public routes
+  authenticate: [authenticateJwt({ app, jwt })], // Inbuilt jwt middleware
+}));
 
   // and you will get `user` Context in ctx.get('user')
   app.get("/profile", async(ctx) => {
@@ -66,24 +67,25 @@ app
   })
 
 ```
-**`authenticateJwtDB()`**
-`authenticateJwtDB(jwt, UserModel)` integrates JWT authentication with a database model for user validation.
+**`authenticateJwtDB()`** from `diesel-core/jwt`
+`authenticateJwtDB({ app, userModel, jwt })` integrates JWT authentication with a database model for user validation.
 
 Example:
 
 ```ts
 import { Diesel } from "diesel-core";
+import { filter } from "diesel-core/filter";
+import { authenticateJwtDB } from "diesel-core/jwt";
 import jwt from 'jsonwebtoken'
 import UserModel from "./schema/userModel"
 
 const app = new Diesel({ jwtSecret: "your-secret" });
 
-// Define routes and apply filters
-app
-  .setupFilter()
-  .publicRoutes("/api/user/register", "/api/user/login", "/test/:id", "/cookie") // Public routes
-  .permitAll() // Mark as public, no authentication required
-  .authenticateJwtDB(jwt, UserModel); // Inbuilt jwt + DB filter
+// Define routes and apply the filter
+app.use(filter({
+  publicRoutes: ["/api/user/register", "/api/user/login", "/cookie"], // Public routes
+  authenticate: [authenticateJwtDB({ app, userModel: UserModel, jwt })], // Inbuilt jwt + DB middleware
+}));
 
   // and you will get `user` Context in ctx.get('user')
   app.get("/profile", async(ctx) => {
@@ -93,41 +95,33 @@ app
 
 ```
 
-### Breakdown of `setupFilter()` Methods
+### Breakdown of `filter()` Options
 
-* `publicRoutes(...routes: string[])`: Specifies which routes should be public (unauthenticated). Supports dynamic parameters (e.g., "/api/user/register", "/api/user/login").
-
-```typescript
-.publicRoutes("/api/user/register", "/api/user/login", "/test/:id")
-```
-
-* `permitAll()`: Marks routes in `publicRoutes()` as publicly accessible, bypassing middleware.
+* `publicRoutes: string[]`: Specifies which routes should be public (unauthenticated). Matched by path prefix.
 
 ```typescript
-.permitAll()
+filter({ publicRoutes: ["/api/user/register", "/api/user/login"] })
 ```
 
-* `authenticate(fnc?: middlewareFunc[])`: Defines one or more middleware functions for routes not included in `publicRoutes()`. If no function is provided, Diesel defaults to an "Unauthorized" response.
-
-* `authenticateJwt(jwt)`: Provides built-in JWT authentication middleware. Requires `jwtSecret` set in `DieselOptions`.
-
-* `authenticateJwtDB(jwt, UserModel)`: Provides built-in more secure JWT authentication middleware that also validates the token against a database model.
+* `authenticate: middlewareFunc[]`: Defines one or more middleware functions, run in order, for routes not included in `publicRoutes`. If the array is empty, Diesel defaults to an "Unauthorized" response for any non-public route.
 
 ```typescript
-.authenticate([authJwt, rateLimiter])
+filter({ authenticate: [authJwt, rateLimiter] })
 ```
+
+* Combine with `authenticateJwt({ app, jwt })` or `authenticateJwtDB({ app, userModel, jwt })` from `diesel-core/jwt` inside `authenticate` for built-in JWT support instead of writing your own.
 
 ### Use Cases
 
 #### **Public Routes**
-Routes like `/api/user/register` and `/api/user/login` are often public to allow user registration and login without prior authentication. These routes can be added to `publicRoutes()` and marked with `permitAll()` for easy access.
+Routes like `/api/user/register` and `/api/user/login` are often public to allow user registration and login without prior authentication. List them in `publicRoutes` to skip authentication for them.
 
 #### **Protected Routes**
-For routes handling sensitive information (e.g., `/api/user/profile`), apply `authenticate([authJwt, rateLimiter])` to enforce authentication and other security layers. Only users with valid JWTs and within rate limits will be able to access these routes.
+For routes handling sensitive information (e.g., `/api/user/profile`), apply `authenticate: [authJwt, rateLimiter]` to enforce authentication and other security layers. Only users with valid JWTs and within rate limits will be able to access these routes.
 
-### Benefits of Using Filters in Diesel
+### Benefits of Using `filter()` in Diesel
 
-✅ **No Need for `app.use()` Middleware** – `setupFilter()` streamlines route protection, eliminating redundant middleware declarations for individual routes.
+✅ **Just a Middleware** – `filter()` is a regular `app.use()` middleware, so it composes naturally with the rest of your middleware stack.
 
 ✅ **Flexible Security** – Easily toggle between public and protected routes.
 
@@ -135,5 +129,4 @@ For routes handling sensitive information (e.g., `/api/user/profile`), apply `au
 
 ✅ **Scalable Middleware** – Supports multiple middleware functions per route for enhanced security and functionality.
 
-With Diesel’s `setupFilter()`, securing routes becomes efficient, clear, and adaptable, allowing you to manage public and private endpoints seamlessly.
-
+With Diesel's `filter()`, securing routes becomes efficient, clear, and adaptable, allowing you to manage public and private endpoints seamlessly.
