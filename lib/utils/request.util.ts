@@ -1,4 +1,4 @@
-import { promises as fsPromises } from "fs";
+import { promises as fsPromises } from "node:fs";
 import { ContextType, handlerFunction, HookType, RuntimeServer } from "../types";
 import { getMimeType } from "./mimeType";
 import { isPromise, isResponse } from "./promise";

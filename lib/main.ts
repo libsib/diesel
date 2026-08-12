@@ -34,7 +34,7 @@ import {
 
 import { getPath } from "./utils/urls.js";
 
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 import { Context } from "./ctx.js";
 
 import { handleRouteNotFound, runHooks } from "./utils/request.util.js";

@@ -1,5 +1,5 @@
-import { createReadStream } from "fs";
-import { Readable } from "stream";
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 
 import type { CookieOptions, ParseBodyResult, RuntimeServer } from "./types";
 import { getMimeType } from "./utils/mimeType";
