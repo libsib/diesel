@@ -19,7 +19,7 @@ const result = await Bun.build({
   entrypoints,
   outdir: './dist',
   root: './lib',
-  minify: true,
+  // minify: true,
   splitting: false,   // no shared chunks — each file is self-contained
   target: 'node',
 });
