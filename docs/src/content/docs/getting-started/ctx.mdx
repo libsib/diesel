@@ -8,7 +8,7 @@ The `ctx` context is an essential object that provides various methods and prope
 ## Properties
 
 - **req**: The incoming `Request` object.
-- **server**: The Bun `Server` instance (undefined in Cloudflare Workers).
+- **server**: The runtime's server companion object, if any (undefined in Cloudflare Workers). Shape varies by runtime — see `RuntimeServer`.
 - **path**: The request pathname (e.g. `/api/users`).
 - **url**: Lazily parsed `URL` object for the request.
 - **env**: Environment bindings (available in Cloudflare Workers).
@@ -18,15 +18,12 @@ The `ctx` context is an essential object that provides various methods and prope
 - **params**: Extracted dynamic route parameters.
 - **cookies**: Parsed cookies from the request (lazily computed).
 - **body**: The parsed request body (lazily computed Promise).
-- **ip**: The client's IP address.
+
+> **Note:** `ctx.ip` has been removed for now — real client IP resolution is runtime-specific (Bun's `server.requestIP()`, Deno's `connInfo.remoteAddr`, Node's `req.socket.remoteAddress`, Cloudflare's `CF-Connecting-IP` header). A per-runtime adaptor helper is planned to replace it.
 
 ## Methods
 
 ### Request Handling
-- **get ip**: Retrieves the client's IP address. Uses Bun's `server.requestIP()` or the `CF-Connecting-IP` header on Cloudflare.
-  ```typescript
-  const clientIP = ctx.ip;
-  ```
 - **get query**: Retrieves parsed query parameters as a plain object.
   ```typescript
   const queryParams = ctx.query;

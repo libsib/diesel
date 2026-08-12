@@ -1,8 +1,17 @@
-import { Server } from "bun";
+import { promises as fsPromises } from "node:fs";
 import { ContextType, handlerFunction, HookType } from "../types";
 import { getMimeType } from "./mimeType";
 import { isResponse } from "./promise";
 import Diesel from "../main";
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    const stat = await fsPromises.stat(filePath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
 
 export async function runHooks<T extends any[]>(
   label: HookType,
@@ -41,17 +50,6 @@ export async function runMiddlewares(diesel: Diesel, pathname: string, ctx: Cont
   return null;
 }
 
-
-export async function executeBunMiddlewares(
-  middlewares: Function[],
-  req: Request,
-  server: Server) {
-
-  for (const middleware of middlewares) {
-    const result = await middleware(req, server);
-    if (result) return result;
-  }
-}
 
 export async function handleRouteNotFound(diesel: Diesel, ctx: ContextType, pathname: string): Promise<Response | undefined> {
 
@@ -99,9 +97,8 @@ export async function handleStaticFiles(
   if (!diesel.staticPath) return null;
 
   const filePath = `${diesel.staticPath}${pathname}`;
-  const file = Bun.file(filePath)
 
-  if (await file.exists()) {
+  if (await fileExists(filePath)) {
     const mimeType = getMimeType(filePath)
     return ctx.file(filePath, mimeType, 200)
   }

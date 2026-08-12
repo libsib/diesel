@@ -54,17 +54,16 @@ app.head() app.options() , app.onMethod(method,path,handler)
 ```ts
 import {Diesel} from "diesel-core"
 const app = new Diesel({
-    platform: 'cf',
     logger: true
 })
 .get("/", (ctx) => ctx.text("Welcome to Diesel.js on Cloudflare Workers!"));
 
 export default {
-  fetch: app.fetch()
+  fetch: app.cfFetch()
 }
 
 ```
-**Note make sure to add platform:'cf' & call fetch(), it gives you real fetch handler**
+**Note: use `cfFetch()` (not `fetch()`) on Cloudflare Workers — it gives you the real fetch handler**
 
 # Node.js adaptor
 ### Now you can use Diesel.js for Node.js

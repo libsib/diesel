@@ -10,12 +10,14 @@ describe("security middleware test", () => {
 
   app.get("/", (ctx:ContextType) => ctx.send("success"));
 
+  let server: ReturnType<typeof Bun.serve>;
+
   beforeAll(() => {
-    app.listen(3000);
+    server = Bun.serve({ port: 3000, fetch: app.fetch });
   });
 
   afterAll(() => {
-    app.close();
+    server.stop(true);
   });
 
   it("should return 200 OK for GET /", async () => {

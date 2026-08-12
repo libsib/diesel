@@ -1,6 +1,7 @@
-import { Server } from "bun";
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 
-import type { CookieOptions, ParseBodyResult } from "./types";
+import type { CookieOptions, ParseBodyResult, RuntimeServer } from "./types";
 import { getMimeType } from "./utils/mimeType";
 import { EMPTY_OBJ } from "./constant";
 
@@ -31,7 +32,7 @@ const _TEXT_INIT_WITH_STATUS = (status: number): ResponseInit => ({
 
 export class Context {
   req: Request;
-  server?: Server;
+  server?: RuntimeServer;
   path: string | null;
   #param: Record<string, string> | undefined;
   env?: Record<string, any>;
@@ -47,7 +48,7 @@ export class Context {
 
   constructor(
     req: Request,
-    server: Server | undefined,
+    server: RuntimeServer | undefined,
     path: string | null,
     param: Record<string, string> | undefined, 
     env: Record<string, any> | undefined,
@@ -84,10 +85,23 @@ export class Context {
     return this.contextData[key];
   }
 
-  get ip(): string | null {
-    if (this.server) return this.server.requestIP(this.req)?.address ?? null;
-    return this.req.headers.get("CF-Connecting-IP") || null;
-  }
+  // Removed for now — real client IP resolution is runtime-specific
+  // (Bun's server.requestIP(), Deno's connInfo.remoteAddr, Node's
+  // req.socket.remoteAddress, Cloudflare's CF-Connecting-IP header) and
+  // guessing at it here was dishonest. Use a per-runtime adaptor helper
+  // (e.g. `diesel-core/bun`, `diesel-core/deno`) that takes ctx.req /
+  // ctx.server and returns the real IP once those adaptors exist.
+  //
+  // get ip(): string | null {
+  //   if (typeof this.server?.requestIP === "function") {
+  //     return this.server.requestIP(this.req)?.address ?? null;
+  //   }
+  //   return (
+  //     this.req.headers.get("CF-Connecting-IP") ||
+  //     this.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+  //     null
+  //   );
+  // }
 
   get url(): URL {
     if (!this.urlObject) {
@@ -245,7 +259,7 @@ export class Context {
     status: number = 200,
     customHeaders?: Record<string, string>,
   ): Response {
-    const file = Bun.file(filePath);
+    const file = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
 
     if (!this.headers) {
       if (!customHeaders) {

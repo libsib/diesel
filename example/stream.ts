@@ -99,4 +99,4 @@ app.get("/stream-json", (c: Context) => {
 
 
 
-export default { fetch: app.fetch() as any }
+export default { fetch: app.fetch as any }

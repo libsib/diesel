@@ -6,8 +6,18 @@ type Props = {
     max?: number,
     message?: string
     store?: RateLimitStore
+    // Resolves the bucket key for a request — defaults to a best-effort
+    // header guess. `ctx.ip` was removed since real IP resolution is
+    // runtime-specific; pass a keyGenerator backed by a per-runtime
+    // adaptor helper (e.g. `diesel-core/bun`, `diesel-core/deno`) for
+    // an accurate client IP.
+    keyGenerator?: (ctx: ContextType) => string
 }
 
+const defaultKeyGenerator = (ctx: ContextType): string =>
+    ctx.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    ctx.req.headers.get("CF-Connecting-IP") ??
+    "unknown";
 
 const requests = new Map<string, { count: number; startTime: number }>();
 
@@ -16,12 +26,13 @@ export const rateLimit = (props: Props) => {
         windowMs = 60000,
         max = 100,
         message = "Rate limit exceeded. Please try again later.",
-        store
+        store,
+        keyGenerator = defaultKeyGenerator
     } = props;
 
     return async (ctx: ContextType): Promise<Response | void> => {
-        const socketIP = ctx.ip as string;
-        
+        const socketIP = keyGenerator(ctx);
+
         // if user has given store ( instance of their redis)
         if (store) {
             const key = `rate-limit:${socketIP}`;

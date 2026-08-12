@@ -25,6 +25,8 @@ const create_user = (ctx: ContextType) => {
   return ctx.json({ role: 'user', method: 'POST' })
 }
 
+let server: ReturnType<typeof Bun.serve>;
+
 beforeAll(async () => {
   const user_router = new Diesel()
   user_router.get('/', auth_check as any, get_user as any)
@@ -32,13 +34,12 @@ beforeAll(async () => {
 
   app.mount('/users', user_router)
 
-  app.listen(port, () => {
-    console.log('Server running on ' + port)
-  })
+  server = Bun.serve({ port, fetch: app.fetch })
+  console.log('Server running on ' + port)
 })
 
 afterAll(async () => {
-  app.close()
+  server.stop(true)
   console.log('Server closed.')
 })
 

@@ -19,11 +19,13 @@ describe('powered-by middleware testing', () => {
     app.use('/poweredBy3', poweredBy({ serverName: 'Foo' }))
     app.get('/poweredBy3', (c:ContextType) => c.text('root'))
 
+    let server: ReturnType<typeof Bun.serve>;
+
     beforeAll(() => {
-        app.listen(3008)
+        server = Bun.serve({ port: 3008, fetch: app.fetch })
     })
     afterAll(() => {
-        app.close()
+        server.stop(true)
     })
 
 

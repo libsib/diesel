@@ -1,9 +1,9 @@
-import path from "path";
-import * as fs from "fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import * as fs from "node:fs";
 import { ContextType } from "../../types";
 
-// Replace fileURLToPath usage with Bun's import.meta.dir
-const __dirname = import.meta.dir;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const defaultUploadDir = path.resolve(__dirname, "../../public/uploaded");
 
@@ -28,7 +28,7 @@ export const fileSaveMiddleware = (options: { dest?: string, fields?: string[] }
                 const filename = `${field}_${crypto.randomUUID()}${path.extname(file?.name)}`
                 const savefilepath = path.join(uploadDir,filename)
 
-                await Bun.write(savefilepath, await file.arrayBuffer())
+                await fs.promises.writeFile(savefilepath, Buffer.from(await file.arrayBuffer()))
                 ctx.req.files[field] = savefilepath
             }
         } catch (error) {

@@ -1,5 +1,4 @@
-import type { ContextType, middlewareFunc } from "../../types.js";
-import type { Server } from "bun";
+import type { ContextType, middlewareFunc, RuntimeServer } from "../../types.js";
 
 export interface FilterOptions {
   publicRoutes?: string[];
@@ -30,7 +29,7 @@ export const filter = (options: FilterOptions): middlewareFunc => {
   }
   const authenticate = options.authenticate ?? [];
 
-  return (async (ctx: ContextType, server: Server) => {
+  return (async (ctx: ContextType, server: RuntimeServer) => {
     const pathname = ctx.path!;
     for (const route of publicRoutes) {
       if (pathname.startsWith(route)) return;

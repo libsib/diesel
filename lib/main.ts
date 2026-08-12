@@ -13,13 +13,12 @@ import {
   onSend,
   RouteHandler,
   RouteNotFoundHandler,
+  RuntimeServer,
   TempRouteEntry,
   type handlerFunction,
   type Hooks,
   type HttpMethod,
 } from "./types.js";
-
-import { Server } from "bun";
 
 import type {
   AdvancedLoggerOptions,
@@ -34,7 +33,7 @@ import {
 
 import { getPath } from "./utils/urls.js";
 
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 import { Context } from "./ctx.js";
 
 import { handleRouteNotFound, runHooks } from "./utils/request.util.js";
@@ -58,7 +57,7 @@ export default class Diesel {
   hasOnError: boolean;
   hooks: Hooks;
   corsConfig: corsT;
-  private serverInstance: Server | null;
+  // private serverInstance: BunServer | null; // unused now that listen()/close() are commented out
   staticFiles: any | undefined;
   user_jwt_secret: string | undefined;
   baseApiUrl: string;
@@ -71,7 +70,6 @@ export default class Diesel {
   #newPipelineArchitecture: boolean = false;
   emitter: undefined | EventEmitter;
   errorFormat: errorFormat;
-  platform: string = "bun";
   // tha path of static files
   staticPath: any;
   // the request path where user wants static files should be server
@@ -91,6 +89,7 @@ export default class Diesel {
   /**
    * `.fetch` is the entry point of your app — pass it directly to a server,
    * e.g. `Bun.serve({ fetch: app.fetch })` or `export default { fetch: app.fetch }`.
+   * For Cloudflare Workers use `cfFetch()` instead.
    *
    * Backed by a self-replacing getter: the first time this property is read,
    * it builds the real handler (freeing `tempRoutes`/`tempMiddlewares` in the
@@ -114,7 +113,6 @@ export default class Diesel {
       router = "t2",
       routerInstance,
       errorFormat = "json",
-      platform = "bun",
       prefixApiUrl = "",
       baseApiUrl = "",
       jwtSecret,
@@ -127,7 +125,6 @@ export default class Diesel {
     else this.router = RouterFactory.create(router);
 
     this.errorFormat = errorFormat;
-    this.platform = platform;
 
     if (!Diesel.instance) {
       Diesel.instance = this;
@@ -168,7 +165,7 @@ export default class Diesel {
         console.log("Request Path:", path);
       });
 
-    this.serverInstance = null;
+    // this.serverInstance = null; // unused now that listen()/close() are commented out
     this.staticPath = null;
     this.routeNotFoundFunc = () => {};
 
@@ -312,60 +309,79 @@ export default class Diesel {
     return this;
   }
 
-  listen(port: any, ...args: listenArgsT[]): Server | void {
-    let hostname = "0.0.0.0";
-    let callback: (() => void) | undefined = undefined;
-    let options: { cert?: string; key?: string } = {};
+  // Removed for now — this tied Diesel directly to Bun.serve(). Use
+  // `export default { fetch: app.fetch() }` (or your runtime's native
+  // server, e.g. `Bun.serve({ fetch: app.fetch() })`) instead.
+  //
+  // listen(port: any, ...args: listenArgsT[]): BunServer | void {
+  //   let hostname = "0.0.0.0";
+  //   let callback: (() => void) | undefined = undefined;
+  //   let options: { cert?: string; key?: string } = {};
+  //
+  //   for (const arg of args) {
+  //     if (typeof arg === "string") {
+  //       hostname = arg;
+  //     } else if (typeof arg === "function") {
+  //       callback = arg;
+  //     } else if (typeof arg === "object" && arg !== null) {
+  //       options = arg;
+  //     }
+  //   }
+  //
+  //   const ServerOptions: any = {
+  //     port,
+  //     hostname,
+  //     idleTimeOut: this.idleTimeOut,
+  //     fetch: this.fetch(),
+  //   };
+  //
+  //   if (this.staticFiles) ServerOptions.static = this.staticFiles;
+  //
+  //   if (this.routes && Object.keys(this.routes).length > 0) {
+  //     ServerOptions.routes = this.routes;
+  //   }
+  //
+  //   if (options.cert && options.key) {
+  //     ServerOptions.certFile = options.cert;
+  //     ServerOptions.keyFile = options.key;
+  //   }
+  //
+  //   this.serverInstance = Bun?.serve(ServerOptions);
+  //
+  //   callback && callback();
+  //
+  //   return this.serverInstance;
+  // }
 
-    for (const arg of args) {
-      if (typeof arg === "string") {
-        hostname = arg;
-      } else if (typeof arg === "function") {
-        callback = arg;
-      } else if (typeof arg === "object" && arg !== null) {
-        options = arg;
-      }
-    }
-
-    const ServerOptions: any = {
-      port,
-      hostname,
-      idleTimeOut: this.idleTimeOut,
-      fetch: this.fetch,
-    };
-
-    if (this.staticFiles) ServerOptions.static = this.staticFiles;
-
-    if (this.routes && Object.keys(this.routes).length > 0) {
-      ServerOptions.routes = this.routes;
-    }
-
-    if (options.cert && options.key) {
-      ServerOptions.certFile = options.cert;
-      ServerOptions.keyFile = options.key;
-    }
-
-    this.serverInstance = Bun?.serve(ServerOptions);
-
-    callback && callback();
-
-    return this.serverInstance;
-  }
-
-  close(callback?: () => void): void {
-    if (this.serverInstance) {
-      this.serverInstance.stop(true);
-      this.serverInstance = null;
-      callback ? callback() : console.log("Server has been stopped");
-    } else {
-      console.warn("Server is not running.");
-    }
-  }
+  // close(callback?: () => void): void {
+  //   if (this.serverInstance) {
+  //     this.serverInstance.stop(true);
+  //     this.serverInstance = null;
+  //     callback ? callback() : console.log("Server has been stopped");
+  //   } else {
+  //     console.warn("Server is not running.");
+  //   }
+  // }
 
   // for cloudflare fetch
   cfFetch() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
+
+    if (this.#newPipelineArchitecture) {
+      const pipeline = buildRequestPipeline(this as any);
+      return (
+        req: Request,
+        env: Record<string, string>,
+        executionContext: any,
+      ) => {
+        return pipeline(req, this, undefined, env, executionContext).catch(
+          async (error: any) => {
+            return this.handleError(error, getPath(req.url), req);
+          },
+        );
+      };
+    }
 
     return (request: Request, env: Record<string, any>, executionCtx: any) => {
       return this.#handleRequests(request, undefined, env, executionCtx);
@@ -377,7 +393,6 @@ export default class Diesel {
       configurable: true,
       enumerable: true,
       get: () => {
-        console.log("building")
         const built = this.#buildFetchHandler();
         Object.defineProperty(this, "fetch", {
           value: built,
@@ -390,44 +405,16 @@ export default class Diesel {
     });
   }
 
+  // NORMAL WAY WITH BUN/NODE/DENO — for Cloudflare Workers use cfFetch() instead.
   #buildFetchHandler() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
-
-    // if user is using for cloudflare workers
-    if (this.platform === "cf" || this.platform === "cloudflare") {
-      if (this.#newPipelineArchitecture) {
-        const pipeline = buildRequestPipeline(this as any);
-        return (
-          req: Request,
-          env?: Record<string, string>,
-          executionContext?: any,
-        ) => {
-          return pipeline(req, this, undefined, env, executionContext).catch(
-            async (error: any) => {
-              return this.handleError(error, getPath(req.url), req);
-            },
-          );
-        };
-      }
-
-      // cloudflare handler
-      return (
-        request: Request,
-        env?: Record<string, any>,
-        executionContext?: any,
-      ) => {
-        return this.#handleRequests(request, undefined, env, executionContext);
-      };
-    }
-
-    // NORMAL WAY WITH BUN/NODE/DENO
 
     if (this.#newPipelineArchitecture) {
       const execute_handler = build_request_pipeline_latest(this);
       return (
         req: Request,
-        server?: Server,
+        server?: RuntimeServer,
         env?: Record<string, any>,
         executionContext?: any,
       ) => {
@@ -458,7 +445,7 @@ export default class Diesel {
 
   #handleRequests(
     req: Request,
-    server?: Server,
+    server?: RuntimeServer,
     env?: Record<string, any>,
     executionContext?: any,
   ): Response | Promise<Response | undefined> {

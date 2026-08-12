@@ -29,12 +29,15 @@ describe("FileSaveMidlleware", () => {
         }
     );
 
+    let server: ReturnType<typeof Bun.serve>;
+
     beforeAll(() => {
-        app.listen(3006, () => console.log("server started"));
+        server = Bun.serve({ port: 3006, fetch: app.fetch });
+        console.log("server started");
     });
 
     afterAll(() => {
-        app.close()
+        server.stop(true)
     });
 
     it("should save uploaded single file and return path", async () => {

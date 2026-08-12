@@ -3,7 +3,6 @@ import { Context } from "./ctx";
 import { getPath } from "./utils/urls";
 import { EMPTY_OBJ } from "./constant";
 import {
-  executeBunMiddlewares,
   generateErrorResponse,
   handleRouteNotFound,
   runHooks,
@@ -233,17 +232,10 @@ export const BunRequestPipline = (
     `);
   }
 
-  // Middlewares
-  // if (allMiddlewares.length) {
-  //   pipeline.push(`
-  //     const globalMiddlewareResponse = await executeBunMiddlewares(
-  //       allMiddlewares,
-  //       req,
-  //       server
-  //     );
-  //     if (globalMiddlewareResponse) return globalMiddlewareResponse;
-  //   `);
-  // }
+  // Middlewares — was wired through a Bun-specific (req, server) helper
+  // (executeBunMiddlewares), which we've removed from core. Revisit as
+  // part of a Bun adaptor if this global-middleware-in-pipeline path is
+  // ever finished.
 
   // method mathch
   pipeline.push(`
@@ -317,14 +309,12 @@ export const BunRequestPipline = (
   `;
 
   const fnc = new Function(
-    "executeBunMiddlewares",
     "handlers",
     "runHooks",
     "onRequestHooks",
     "allMiddlewares",
     fnBody,
   )(
-    executeBunMiddlewares,
     handlers,
     runHooks,
     onRequestHooks,
