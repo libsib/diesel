@@ -35,12 +35,15 @@ describe("CORS Middleware", () => {
     app.get("/single-origin/test", (c:ContextType) => c.json({ message: "Single origin route" }));
     app.get("/multi-origin/test", (c:ContextType) => c.json({ message: "Multi origin route" }));
 
+    let server: ReturnType<typeof Bun.serve>;
+
     beforeAll(() => {
-        app.listen(3005, () => console.log("server started"));
+        server = Bun.serve({ port: 3005, fetch: app.fetch() });
+        console.log("server started");
     });
 
     afterAll(() => {
-        app.close()
+        server.stop(true)
     });
 
     it("should allow any origin for public route", async () => {

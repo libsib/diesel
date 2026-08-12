@@ -11,11 +11,13 @@ describe("jwt test middleware", () => {
         expiresIn: "1h",
     });
 
+    let server: ReturnType<typeof Bun.serve>;
+
     beforeAll(() => {
-        app.listen(3007);
+        server = Bun.serve({ port: 3007, fetch: app.fetch() });
     });
 
-    afterAll(() => app.close());
+    afterAll(() => server.stop(true));
 
     app.use(
         authenticateJwt({

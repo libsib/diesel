@@ -1,8 +1,17 @@
-import { Server } from "bun";
-import { ContextType, handlerFunction, HookType } from "../types";
+import { promises as fsPromises } from "fs";
+import { ContextType, handlerFunction, HookType, RuntimeServer } from "../types";
 import { getMimeType } from "./mimeType";
 import { isPromise, isResponse } from "./promise";
 import Diesel from "../main";
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    const stat = await fsPromises.stat(filePath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
 
 export async function runHooks<T extends any[]>(
   label: HookType,
@@ -45,7 +54,7 @@ export async function runMiddlewares(diesel: Diesel, pathname: string, ctx: Cont
 export async function executeBunMiddlewares(
   middlewares: Function[],
   req: Request,
-  server: Server) {
+  server: RuntimeServer) {
 
   for (const middleware of middlewares) {
     const result = await middleware(req, server);
@@ -83,7 +92,7 @@ export async function handleBunFilterRequest(
   diesel: Diesel,
   path: string,
   req: Request,
-  server: Server) {
+  server: RuntimeServer) {
 
   if (!diesel.filters!.has(path)) {
     if (diesel.filterFunction?.length) {
@@ -143,9 +152,8 @@ export async function handleStaticFiles(
   if (!diesel.staticPath) return null;
 
   const filePath = `${diesel.staticPath}${pathname}`;
-  const file = Bun.file(filePath)
 
-  if (await file.exists()) {
+  if (await fileExists(filePath)) {
     const mimeType = getMimeType(filePath)
     return ctx.file(filePath, mimeType, 200)
   }

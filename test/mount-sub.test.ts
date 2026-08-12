@@ -44,12 +44,14 @@ app.mount("/external/*", async (req: Request) => {
   });
 });
 
+let server: ReturnType<typeof Bun.serve>;
+
 beforeAll(() => {
-  app.listen(port, () => {});
+  server = Bun.serve({ port, fetch: app.fetch() });
 });
 
 afterAll(() => {
-  app.close();
+  server.stop(true);
 });
 
 describe("sub — routing", () => {

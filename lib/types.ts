@@ -1,10 +1,17 @@
-import { Server } from "bun";
 import { Router } from "./router/interface";
 import Diesel from "./main";
 import type { Context } from "./ctx";
 export type ContextType = Context; // backward compat alias
 export type {Diesel}
 export type listenCalllBackType = () => void;
+
+// Shape of the "server" companion object passed alongside a request.
+// Bun's own `Server` (from "bun") satisfies this structurally, as does
+// any wrapper an adaptor (Node, Deno, ...) chooses to hand through.
+// It's optional/absent under platforms like Cloudflare Workers.
+export interface RuntimeServer {
+    requestIP?(req: Request): { address: string; port?: number; family?: string } | null;
+}
 
 export type handlerFunction = (ctx: Context) => Response | Promise<Response | undefined>;
 
@@ -13,13 +20,13 @@ export type RouteHandler = (path: string, ...handlers: handlerFunction[] | middl
 
 export type middlewareFunc = (
     ctx: Context | Request | any,
-    server: Server
+    server: RuntimeServer
 ) => void | undefined | Response | Promise<undefined | void | Response>;
 
 export type HookFunction = (
     ctx: Context,
     result?: Response | null,
-    server?: Server
+    server?: RuntimeServer
 ) => undefined | void | null | Response | Promise<void | null | undefined | Response>;
 
 export type RouteNotFoundHandler = (
@@ -177,7 +184,7 @@ export interface DieselOptions {
 
 export type DieselFetchHandler = (
   req: Request,
-  server?: Server,
+  server?: RuntimeServer,
   env?: Record<string, any>,
   executionContext?: any
 ) => Promise<Response | undefined> | Response | undefined;

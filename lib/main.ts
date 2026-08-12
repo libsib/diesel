@@ -14,13 +14,12 @@ import {
   onSend,
   RouteHandler,
   RouteNotFoundHandler,
+  RuntimeServer,
   TempRouteEntry,
   type handlerFunction,
   type Hooks,
   type HttpMethod,
 } from "./types.js";
-
-import { Server } from "bun";
 
 import type {
   AdvancedLoggerOptions,
@@ -63,7 +62,7 @@ export default class Diesel {
   filters: Set<string> | undefined;
   filterFunction: Function[] | null;
   hasFilterEnabled: boolean;
-  private serverInstance: Server | null;
+  // private serverInstance: BunServer | null; // unused now that listen()/close() are commented out
   staticFiles: any | undefined;
   user_jwt_secret: string | undefined;
   baseApiUrl: string;
@@ -76,7 +75,7 @@ export default class Diesel {
   #newPipelineArchitecture: boolean = false;
   emitter: undefined | EventEmitter;
   errorFormat: errorFormat;
-  platform: string = "bun";
+  platform: string = "standard";
   // tha path of static files
   staticPath: any;
   // the request path where user wants static files should be server
@@ -108,7 +107,7 @@ export default class Diesel {
       router = "t2",
       routerInstance,
       errorFormat = "json",
-      platform = "bun",
+      platform = "standard",
       prefixApiUrl = "",
       baseApiUrl = "",
       jwtSecret,
@@ -164,7 +163,7 @@ export default class Diesel {
 
     this.filterFunction = null;
     this.hasFilterEnabled = false;
-    this.serverInstance = null;
+    // this.serverInstance = null; // unused now that listen()/close() are commented out
     this.staticPath = null;
     this.routeNotFoundFunc = () => {};
 
@@ -227,7 +226,7 @@ export default class Diesel {
 
       authenticate: (fnc?: Function[] | middlewareFunc[]) => {
         if (fnc?.length) {
-          const wrapper = async (ctx: Context, server: Server) => {
+          const wrapper = async (ctx: Context, server: RuntimeServer) => {
             const pathname = ctx.path!;
             for (const pub of this.filters!) {
               if (pathname.startsWith(pub)) return;
@@ -405,55 +404,59 @@ export default class Diesel {
     return this;
   }
 
-  listen(port: any, ...args: listenArgsT[]): Server | void {
-    let hostname = "0.0.0.0";
-    let callback: (() => void) | undefined = undefined;
-    let options: { cert?: string; key?: string } = {};
+  // Removed for now — this tied Diesel directly to Bun.serve(). Use
+  // `export default { fetch: app.fetch() }` (or your runtime's native
+  // server, e.g. `Bun.serve({ fetch: app.fetch() })`) instead.
+  //
+  // listen(port: any, ...args: listenArgsT[]): BunServer | void {
+  //   let hostname = "0.0.0.0";
+  //   let callback: (() => void) | undefined = undefined;
+  //   let options: { cert?: string; key?: string } = {};
+  //
+  //   for (const arg of args) {
+  //     if (typeof arg === "string") {
+  //       hostname = arg;
+  //     } else if (typeof arg === "function") {
+  //       callback = arg;
+  //     } else if (typeof arg === "object" && arg !== null) {
+  //       options = arg;
+  //     }
+  //   }
+  //
+  //   const ServerOptions: any = {
+  //     port,
+  //     hostname,
+  //     idleTimeOut: this.idleTimeOut,
+  //     fetch: this.fetch(),
+  //   };
+  //
+  //   if (this.staticFiles) ServerOptions.static = this.staticFiles;
+  //
+  //   if (this.routes && Object.keys(this.routes).length > 0) {
+  //     ServerOptions.routes = this.routes;
+  //   }
+  //
+  //   if (options.cert && options.key) {
+  //     ServerOptions.certFile = options.cert;
+  //     ServerOptions.keyFile = options.key;
+  //   }
+  //
+  //   this.serverInstance = Bun?.serve(ServerOptions);
+  //
+  //   callback && callback();
+  //
+  //   return this.serverInstance;
+  // }
 
-    for (const arg of args) {
-      if (typeof arg === "string") {
-        hostname = arg;
-      } else if (typeof arg === "function") {
-        callback = arg;
-      } else if (typeof arg === "object" && arg !== null) {
-        options = arg;
-      }
-    }
-
-    const ServerOptions: any = {
-      port,
-      hostname,
-      idleTimeOut: this.idleTimeOut,
-      fetch: this.fetch(),
-    };
-
-    if (this.staticFiles) ServerOptions.static = this.staticFiles;
-
-    if (this.routes && Object.keys(this.routes).length > 0) {
-      ServerOptions.routes = this.routes;
-    }
-
-    if (options.cert && options.key) {
-      ServerOptions.certFile = options.cert;
-      ServerOptions.keyFile = options.key;
-    }
-
-    this.serverInstance = Bun?.serve(ServerOptions);
-
-    callback && callback();
-
-    return this.serverInstance;
-  }
-
-  close(callback?: () => void): void {
-    if (this.serverInstance) {
-      this.serverInstance.stop(true);
-      this.serverInstance = null;
-      callback ? callback() : console.log("Server has been stopped");
-    } else {
-      console.warn("Server is not running.");
-    }
-  }
+  // close(callback?: () => void): void {
+  //   if (this.serverInstance) {
+  //     this.serverInstance.stop(true);
+  //     this.serverInstance = null;
+  //     callback ? callback() : console.log("Server has been stopped");
+  //   } else {
+  //     console.warn("Server is not running.");
+  //   }
+  // }
 
   // for cloudflare fetch
   cfFetch() {
@@ -501,7 +504,7 @@ export default class Diesel {
       const execute_handler = build_request_pipeline_latest(this);
       return (
         req: Request,
-        server?: Server,
+        server?: RuntimeServer,
         env?: Record<string, any>,
         executionContext?: any,
       ) => {
@@ -532,7 +535,7 @@ export default class Diesel {
 
   #handleRequests(
     req: Request,
-    server?: Server,
+    server?: RuntimeServer,
     env?: Record<string, any>,
     executionContext?: any,
   ): Response | Promise<Response | undefined> {
