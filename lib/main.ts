@@ -27,7 +27,6 @@ import type {
 
 import {
   build_request_pipeline_latest,
-  buildRequestPipeline,
   BunRequestPipline,
 } from "./request_pipeline.js";
 
@@ -118,7 +117,6 @@ export default class Diesel {
       jwtSecret,
       idleTimeOut = 10,
       pipelineArchitecture = false,
-      onError,
     } = options;
 
     if (routerInstance) this.router = routerInstance;
@@ -157,13 +155,6 @@ export default class Diesel {
       onError: null,
       onClose: null,
     };
-
-    // if user wants to log Error and respective Res
-    if (onError)
-      this.addHooks("onError", (err: ErrnoException, path: string) => {
-        console.log("Got an exception:", err);
-        console.log("Request Path:", path);
-      });
 
     // this.serverInstance = null; // unused now that listen()/close() are commented out
     this.staticPath = null;
@@ -309,75 +300,34 @@ export default class Diesel {
     return this;
   }
 
-  // Removed for now — this tied Diesel directly to Bun.serve(). Use
-  // `export default { fetch: app.fetch() }` (or your runtime's native
-  // server, e.g. `Bun.serve({ fetch: app.fetch() })`) instead.
-  //
-  // listen(port: any, ...args: listenArgsT[]): BunServer | void {
-  //   let hostname = "0.0.0.0";
-  //   let callback: (() => void) | undefined = undefined;
-  //   let options: { cert?: string; key?: string } = {};
-  //
-  //   for (const arg of args) {
-  //     if (typeof arg === "string") {
-  //       hostname = arg;
-  //     } else if (typeof arg === "function") {
-  //       callback = arg;
-  //     } else if (typeof arg === "object" && arg !== null) {
-  //       options = arg;
-  //     }
-  //   }
-  //
-  //   const ServerOptions: any = {
-  //     port,
-  //     hostname,
-  //     idleTimeOut: this.idleTimeOut,
-  //     fetch: this.fetch(),
-  //   };
-  //
-  //   if (this.staticFiles) ServerOptions.static = this.staticFiles;
-  //
-  //   if (this.routes && Object.keys(this.routes).length > 0) {
-  //     ServerOptions.routes = this.routes;
-  //   }
-  //
-  //   if (options.cert && options.key) {
-  //     ServerOptions.certFile = options.cert;
-  //     ServerOptions.keyFile = options.key;
-  //   }
-  //
-  //   this.serverInstance = Bun?.serve(ServerOptions);
-  //
-  //   callback && callback();
-  //
-  //   return this.serverInstance;
-  // }
-
-  // close(callback?: () => void): void {
-  //   if (this.serverInstance) {
-  //     this.serverInstance.stop(true);
-  //     this.serverInstance = null;
-  //     callback ? callback() : console.log("Server has been stopped");
-  //   } else {
-  //     console.warn("Server is not running.");
-  //   }
-  // }
-
   // for cloudflare fetch
   cfFetch() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
 
     if (this.#newPipelineArchitecture) {
-      const pipeline = buildRequestPipeline(this as any);
+      const execute_handler = build_request_pipeline_latest(this);
       return (
         req: Request,
         env: Record<string, string>,
         executionContext: any,
       ) => {
-        return pipeline(req, this, undefined, env, executionContext).catch(
+        const path = getPath(req.url);
+        const matchedRouteHandler = this.router.find(
+          req.method as HttpMethod,
+          path,
+        );
+        const ctx = new Context(
+          req,
+          undefined,
+          path,
+          matchedRouteHandler?.params || EMPTY_OBJ,
+          env,
+          executionContext,
+        );
+        return execute_handler(this, ctx, matchedRouteHandler).catch(
           async (error: any) => {
-            return this.handleError(error, getPath(req.url), req);
+            return this.handleError(error, ctx);
           },
         );
       };
@@ -433,7 +383,7 @@ export default class Diesel {
         );
         return execute_handler(this, ctx, matchedRouteHandler).catch(
           async (error: any) => {
-            return this.handleError(error, getPath(req.url), req);
+            return this.handleError(error, ctx);
           },
         );
       };
@@ -463,7 +413,7 @@ export default class Diesel {
       executionContext,
     );
     return this.#execute_handlers(ctx, matchedRouteHandler).catch((err: any) =>
-      this.handleError(err, path, req),
+      this.handleError(err, ctx),
     );
   }
 
@@ -514,17 +464,20 @@ export default class Diesel {
   }
 
   // HandleError
-  private async handleError(err: unknown, path: string, req: Request) {
+  private async handleError(err: unknown, ctx: Context) {
     const isDev = process.env.NODE_ENV === "development";
 
     const format = this.errorFormat;
+    const path = ctx.path ?? "";
+
+    const headers = new Headers(ctx.headers ?? ctx.req.headers);
 
     // 1. user defined hooks
     if (this.hasOnError) {
       const hookResult = await runHooks("onError", this.hooks.onError, [
         err,
         path,
-        req,
+        ctx.req,
       ]);
       if (hookResult) return hookResult;
     }
@@ -548,8 +501,8 @@ export default class Diesel {
       if (httpErr.res) return httpErr.res;
 
       return format === "json"
-        ? Response.json({ error: httpErr.message }, { status: httpErr.status })
-        : new Response(httpErr.message, { status: httpErr.status });
+        ? Response.json({ error: httpErr.message }, { status: httpErr.status, headers })
+        : new Response(httpErr.message, { status: httpErr.status , headers });
     }
 
     // 3. Default fallback
@@ -568,17 +521,22 @@ export default class Diesel {
         ...(isDev && { stack: errorStack }),
         path,
       };
+      if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json")
+      }
       return Response.json(body, {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers,
       });
     } else {
       const message: string = isDev
         ? `Error: ${errorMessage}\nStack: ${errorStack}`
         : `Error: ${errorMessage}`;
-
+      if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "text/plain")
+      }
       return new Response(message, {
-        headers: { "Content-Type": "text/plain" },
+        headers,
         status: 500,
       });
     }
@@ -642,7 +600,7 @@ export default class Diesel {
       ctx.params = matchedRouteHandler?.params || EMPTY_OBJ;
       return child
         .#execute_handlers(ctx, matchedRouteHandler)
-        .catch((err: any) => this.handleError(err, path, ctx.req));
+        .catch((err: any) => this.handleError(err, ctx));
     };
 
     this.all(prefix, handler as handlerFunction);
