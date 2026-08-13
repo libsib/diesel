@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.1.0
+
+### Fixes
+
+- **Headers/cookies set via `ctx.setHeader()`/`ctx.setCookie()` were dropped from the response whenever a route or middleware threw.** `handleError` had no access to `ctx`, so every error path (uncaught throw, `HTTPException`) rebuilt a bare `Response` from scratch instead of carrying forward anything already set on the request context. Fixed across every dispatch path — `.fetch`, `cfFetch()`, and `sub()` — for both the default and `pipelineArchitecture: true` execution modes.
+- `cfFetch()` under `pipelineArchitecture: true` used a separate, older pipeline codegen (`buildRequestPipeline`) that built its `Context` internally and never exposed it, which is what caused the header bug above on that path specifically. Switched it to the same codegen `.fetch` already uses (`build_request_pipeline_latest`). As a side effect, `onRequest` hooks and per-route middleware now also run under `cfFetch()` + `pipelineArchitecture: true`, which they previously skipped — execution is now consistent across Bun/Node/Deno/Cloudflare Workers regardless of architecture mode.
+
+### Breaking changes
+
+- **Dead `onError: boolean` constructor option removed** from `DieselOptions`. It only ever logged to the console and was undocumented outside one example. Use `app.addHooks("onError", (error, path, req) => { ... })` instead (see README).
+
+### Other
+
+- Removed the now-unused `buildRequestPipeline` codegen path and its only helper, superseded entirely by `build_request_pipeline_latest`.
+
 ## 3.0.1
 
 Docs-only release — no code changes.
