@@ -158,7 +158,6 @@ export interface DieselOptions {
     baseApiUrl?: string;
     idleTimeOut?: number;
     prefixApiUrl?: string;
-    onError?: boolean;
     pipelineArchitecture?: boolean;
     errorFormat?: errorFormat
     router?: string;

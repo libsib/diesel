@@ -2,11 +2,7 @@ import { Diesel, HookFunction, middlewareFunc } from "./types";
 import { Context } from "./ctx";
 import { getPath } from "./utils/urls";
 import { EMPTY_OBJ } from "./constant";
-import {
-  generateErrorResponse,
-  handleRouteNotFound,
-  runHooks,
-} from "./utils/request.util";
+import { handleRouteNotFound, runHooks } from "./utils/request.util";
 import { isPromise } from "./utils/promise";
 
 function extractBody(fn: Function) {
@@ -60,28 +56,6 @@ const pushHooks = (
   }
 };
 
-const pushParsePathname = (pipeline: string[]) => {
-  pipeline.push(`
-    let pathname;
-    const start = req.url.indexOf('/', req.url.indexOf(':') + 4);
-    let i = start;
-    for (; i < req.url.length; i++) {
-        const charCode = req.url.charCodeAt(i);
-        if (charCode === 37) { // percent-encoded
-            const queryIndex = req.url.indexOf('?', i);
-            const path = req.url.slice(start, queryIndex === -1 ? undefined : queryIndex);
-            pathname = tryDecodeURI(path.includes('%25') ? path.replace(/%25/g, '%2525') : path);
-            break;
-        } else if (charCode === 63) { // ?
-            break;
-        }
-    }
-    if (!pathname) {
-      pathname = req.url.slice(start, i);
-    }
-  `);
-};
-
 const pushMiddlewares = (
   pipeline: string[],
   globalMiddlewares: middlewareFunc[],
@@ -111,89 +85,6 @@ const pushMiddlewares = (
     }
   `);
   }
-};
-
-export const buildRequestPipeline = (diesel: Diesel) => {
-  const pipeline: string[] = [];
-
-  const PreHandlerHook = diesel?.hasPreHandlerHook
-    ? diesel.hooks.preHandler
-    : ([] as any);
-  const OnSendHook = diesel?.hasOnSendHook ? diesel.hooks.onSend : ([] as any);
-
-  // parse pathname
-  pushParsePathname(pipeline);
-
-  // finc routeHandler
-  pipeline.push(`
-      const matchedRouteHandler = diesel.router.find(req.method, pathname);
-    `);
-
-  pipeline.push(`
-          const ctx = new Context(
-          req,
-          server,
-          pathname,
-          matchedRouteHandler?.params,
-          env,
-          executionContext
-          )
-    `);
-
-  // Pre-handler
-  if (diesel.hasPreHandlerHook) {
-    pushHooks(pipeline, PreHandlerHook, "preHandler", "ctx");
-  }
-
-  // Actual route handler
-  pipeline.push(`
-          let finalResult
-                const handlers = matchedRouteHandler?.handler;
-
-                if (handlers.length === 1) {
-                  const result = handlers[0](ctx);
-                  finalResult = isPromise(result) ? await result : result;
-                }
-                else {
-                  for (let i = 0; i < handlers.length; i++) {
-                    const result = handlers[i](ctx);
-                    finalResult = isPromise(result) ? await result : result;
-                    if (finalResult) break;
-                  }
-                }
-    `);
-
-  // onSend
-  if (diesel.hasOnSendHook) {
-    pushHooks(pipeline, OnSendHook, "onSend", "ctx", "finalResult");
-  }
-
-  // Final response
-  pipeline.push(`
-      if (finalResult) return finalResult;
-    `);
-
-  // Route not found check
-  pipeline.push(`
-    return await handleRouteNotFound(diesel, ctx, pathname);
-  `);
-
-  const fnBody = `
-      return async function pipeline(req, diesel, server, env, executionContext) {
-          ${pipeline.join("\n")}
-      }
-    `;
-
-  const fnc = new Function(
-    "handleRouteNotFound",
-    "generateErrorResponse",
-    "Context",
-    "isPromise",
-    fnBody,
-  )(handleRouteNotFound, generateErrorResponse, Context, isPromise);
-
-  // console.log(fnc.toString())
-  return fnc;
 };
 
 export const BunRequestPipline = (

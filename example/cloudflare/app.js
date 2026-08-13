@@ -3,7 +3,11 @@ import Diesel from "../../dist/main";
 
 const app = new Diesel({
     platform: 'cf',
-    onError: true
+})
+
+app.addHooks("onError", (error, path) => {
+    console.log("Got an exception:", error);
+    console.log("Request Path:", path);
 })
 
 
