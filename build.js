@@ -7,9 +7,9 @@ await rm('./dist', { recursive: true, force: true });
 // Auto-discover all TS source files, skip tests
 const glob = new Glob('**/*.ts');
 const entrypoints = [];
-for await (const file of glob.scan('./lib')) {
+for await (const file of glob.scan('./src')) {
   if (!file.includes('.test.') && !file.includes('.spec.')) {
-    entrypoints.push(`./lib/${file}`);
+    entrypoints.push(`./src/${file}`);
   }
 }
 
@@ -18,7 +18,7 @@ console.log(`📦 Building ${entrypoints.length} entrypoints...`);
 const result = await Bun.build({
   entrypoints,
   outdir: './dist',
-  root: './lib',
+  root: './src',
   // minify: true,
   splitting: false,   // no shared chunks — each file is self-contained
   target: 'node',

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import Diesel from "../lib/main";
-import { HTTPException } from "../lib/http-exception";
-import type { Context } from "../lib/ctx";
+import Diesel from "../src/main";
+import { HTTPException } from "../src/http-exception";
+import type { Context } from "../src/ctx";
 
 // No server/network needed here — app.fetch / app.cfFetch() just return a
 // Response for a given Request, so we can call them directly and inspect

@@ -1,6 +1,6 @@
 import type { ContextType } from '../index'
-import { cors } from '../lib/middlewares/cors/cors'
-import Diesel from '../lib/main'
+import { cors } from '../src/middlewares/cors/cors'
+import Diesel from '../src/main'
 export const app = new Diesel()
 
 

@@ -1,4 +1,4 @@
-import { getPath, tryDecodeURI } from "../lib/utils/urls";
+import { getPath, tryDecodeURI } from "../src/utils/urls";
 
 export const getPathHono = (url:string): string => {
   const start = url.indexOf('/', url.indexOf(':') + 4)

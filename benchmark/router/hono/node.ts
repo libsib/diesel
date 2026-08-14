@@ -1,5 +1,5 @@
 import { METHOD_NAME_ALL, type Params } from "hono/router"
-import { getPattern, splitPath, splitRoutingPath, type Pattern } from "../../../lib/utils/urls"
+import { getPattern, splitPath, splitRoutingPath, type Pattern } from "../../../src/utils/urls"
 
 
 type HandlerSet<T> = {

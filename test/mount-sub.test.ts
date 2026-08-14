@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import Diesel from "../lib/main";
-import type { Context } from "../lib/ctx";
+import Diesel from "../src/main";
+import type { Context } from "../src/ctx";
 
 const port = 3002;
 const baseUrl = `http://localhost:${port}`;

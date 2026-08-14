@@ -1,10 +1,10 @@
-import Diesel from "../lib/main";
-import { ContextType } from "../lib/types";
-import { HTTPException } from '../lib/http-exception';
+import Diesel from "../src/main";
+import { ContextType } from "../src/types";
+import { HTTPException } from '../src/http-exception';
 import FindMyWay from 'find-my-way'
-import { FindMyWayRouter } from "../lib/router/find-my-way";
-import { TrieRouter2 } from '../lib/router/trie2'
-import { Context } from "../lib/ctx";
+import { FindMyWayRouter } from "../src/router/find-my-way";
+import { TrieRouter2 } from '../src/router/trie2'
+import { Context } from "../src/ctx";
 
 
 // const t2 = new TrieRouter2()

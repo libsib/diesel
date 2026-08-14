@@ -1,7 +1,7 @@
-import { TrieRouter } from "../../lib/router/trie";
+import { TrieRouter } from "../../src/router/trie";
 import { FindMyWayRouter } from "./find-my-way";
 import { HonoTrieRouter } from "./hono/router";
-import { OldTrieRouter } from "../../lib/router/old-trie";
+import { OldTrieRouter } from "../../src/router/old-trie";
 
 // Configuration
 const NUM_ROUTES = 3000;

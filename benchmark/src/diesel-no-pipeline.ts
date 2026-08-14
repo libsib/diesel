@@ -1,5 +1,5 @@
-import { type Context } from "../../lib/ctx";
-import Diesel from "../../lib/main";
+import { type Context } from "../../src/ctx";
+import Diesel from "../../src/main";
 
 const PORT = parseInt(process.env.PORT || "3000");
 

@@ -1,6 +1,6 @@
 import type { Result, Router } from 'hono/router'
 import { Node } from './node'
-import { checkOptionalParameter } from '../../../lib/utils/urls'
+import { checkOptionalParameter } from '../../../src/utils/urls'
 
 export class HonoTrieRouter<T> implements Router<T> {
   name: string = 'TrieRouter'

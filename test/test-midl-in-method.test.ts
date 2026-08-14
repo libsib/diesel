@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test'
 import { app } from './server'
-import Diesel from '../lib/main'
+import Diesel from '../src/main'
 import type { ContextType } from '../index'
 
 const port = 3001
