@@ -10,7 +10,7 @@ const external = Object.keys(pkg.dependencies ?? {});
 
 // Only build what's actually reachable from the public package surface
 // (the exports map + what index.js loads directly). Everything else in
-// lib/ is internal-only - it already gets inlined wherever it's really
+// src/ is internal-only - it already gets inlined wherever it's really
 // needed (splitting is off), so building it again as its own top-level
 // file just ships dead weight.
 const publicDistPaths = new Set();
@@ -26,14 +26,14 @@ for (const match of indexSource.matchAll(/from\s+['"](\.\/dist\/[^'"]+)['"]/g)) 
 
 const entrypoints = [...publicDistPaths]
   .filter((p) => p.endsWith('.js'))
-  .map((p) => p.replace(/^\.\/dist\//, './lib/').replace(/\.js$/, '.ts'));
+  .map((p) => p.replace(/^\.\/dist\//, './src/').replace(/\.js$/, '.ts'));
 
 console.log(`📦 Building ${entrypoints.length} entrypoints...`);
 
 const result = await Bun.build({
   entrypoints,
   outdir: './dist',
-  root: './lib',
+  root: './src',
   // minify: true,
   splitting: false,   // no shared chunks — each file is self-contained
   target: 'node',

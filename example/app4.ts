@@ -1,5 +1,5 @@
-import { Context } from "../lib/ctx";
-import Diesel from "../lib/main";
+import { Context } from "../src/ctx";
+import Diesel from "../src/main";
 
 const app = new Diesel()
 app.use((c: Context) => {

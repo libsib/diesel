@@ -1,5 +1,5 @@
 import { Context as HonoContext } from "./hono-ctx.js";
-import { Context as DieselContext } from "../lib/ctx.js";
+import { Context as DieselContext } from "../src/ctx.js";
 
 const ITER = 10_000_00;
 
