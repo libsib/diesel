@@ -313,10 +313,11 @@ export default class Diesel {
         executionContext: any,
       ) => {
         const path = getPath(req.url);
-        const matchedRouteHandler = this.router.find(
+        let matchedRouteHandler = this.router.find(
           req.method as HttpMethod,
           path,
         );
+        if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           undefined,
@@ -369,10 +370,11 @@ export default class Diesel {
         executionContext?: any,
       ) => {
         const path = getPath(req.url);
-        const matchedRouteHandler = this.router.find(
+        let matchedRouteHandler = this.router.find(
           req.method as HttpMethod,
           path,
         );
+        if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           server,
@@ -400,10 +402,13 @@ export default class Diesel {
     executionContext?: any,
   ): Response | Promise<Response | undefined> {
     const path = getPath(req.url);
-    const matchedRouteHandler = this.router.find(
+
+    let matchedRouteHandler = this.router.find(
       req.method as HttpMethod,
       path,
     );
+    if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
+
     const ctx = new Context(
       req,
       server,

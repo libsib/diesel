@@ -155,6 +155,7 @@ export class Context {
     status: number = 200,
     customHeaders?: Record<string, string>,
   ): Response {
+    data = this.req.method === "HEAD" ? null as any : data;
     if (!this.headers) {
       if (!customHeaders) {
         return new Response(data, status === 200 ? _TEXT_INIT : _TEXT_INIT_WITH_STATUS(status));
@@ -195,6 +196,7 @@ export class Context {
       contentType = "text/plain; charset=utf-8";
       responseData = String(data);
     }
+    if (this.req.method === "HEAD") responseData = null;
     if (!this.headers) {
       if (!customHeaders) {
         return new Response(responseData, {
@@ -225,8 +227,16 @@ export class Context {
     status: number = 200,
     customHeaders?: Record<string, string>,
   ): Response {
+    const isHead = this.req.method === "HEAD";
+
     if (!this.headers) {
       if (!customHeaders) {
+        if (isHead) {
+          return new Response(null, {
+            status,
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+          });
+        }
         // Response.json() sets Content-Type automatically; skip options entirely when status=200
         return status === 200
           ? Response.json(object)
@@ -237,7 +247,9 @@ export class Context {
         "Content-Type": "application/json; charset=utf-8",
       };
       copyHeadersToObject(customHeaders, h);
-      return Response.json(object, { status, headers: h });
+      return isHead
+        ? new Response(null, { status, headers: h })
+        : Response.json(object, { status, headers: h });
     }
 
     // slow path
@@ -247,7 +259,7 @@ export class Context {
       this.headers.set("Content-Type", "application/json; charset=utf-8");
     }
 
-    return new Response(JSON.stringify(object), {
+    return new Response(isHead ? null : JSON.stringify(object), {
       status,
       headers: this.headers,
     });
@@ -259,7 +271,10 @@ export class Context {
     status: number = 200,
     customHeaders?: Record<string, string>,
   ): Response {
-    const file = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
+    const isHead = this.req.method === "HEAD";
+    const file = isHead
+      ? null
+      : (Readable.toWeb(createReadStream(filePath)) as ReadableStream);
 
     if (!this.headers) {
       if (!customHeaders) {
@@ -344,6 +359,10 @@ export class Context {
     callback: (controller: ReadableStreamDefaultController) => void,
   ): Response {
     const headers = new Headers(this.headers ?? new Headers());
+    const isHead = this.req.method === "HEAD";
+    if (isHead) {
+      return new Response(null,{headers})
+    }
     const stream = new ReadableStream({
       async start(controller) {
         await callback(controller);
