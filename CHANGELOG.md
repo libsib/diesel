@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.3.0
+
+### Features
+
+- **HEAD method support (RFC 9110).** A `HEAD` request to a path with no dedicated `HEAD` handler now falls back to the matching `GET` route instead of 404ing — middleware and hooks on that route still run as normal. An explicit `app.head(...)` registration, when present, still takes priority over the fallback. Wired into every dispatch path: `.fetch` and `cfFetch()`, under both the default and `pipelineArchitecture: true` execution modes.
+- `ctx.text()`, `ctx.json()`, `ctx.send()`, `ctx.file()`, and `ctx.stream()` now all omit the response body when the request method is `HEAD`, regardless of which one built the response.
+
+### Fixes
+
+- The `HEAD`→`GET` fallback was initially guarded only by "no route matched", which meant *any* unmatched method (e.g. `DELETE`/`PUT` to a `GET`-only path) incorrectly ran the `GET` handler too. Restricted the fallback to `HEAD` requests specifically.
+
 ## 3.2.0
 
 ### Features
