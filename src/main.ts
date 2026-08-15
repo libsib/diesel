@@ -317,7 +317,7 @@ export default class Diesel {
           req.method as HttpMethod,
           path,
         );
-        if (!matchedRouteHandler.handler) matchedRouteHandler = this.router.find("GET", path);
+        if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           undefined,
@@ -374,7 +374,7 @@ export default class Diesel {
           req.method as HttpMethod,
           path,
         );
-        if (!matchedRouteHandler.handler) matchedRouteHandler = this.router.find("GET", path);
+        if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           server,
@@ -407,8 +407,8 @@ export default class Diesel {
       req.method as HttpMethod,
       path,
     );
-    if (!matchedRouteHandler.handler) matchedRouteHandler = this.router.find("GET", path);
-    
+    if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
+
     const ctx = new Context(
       req,
       server,

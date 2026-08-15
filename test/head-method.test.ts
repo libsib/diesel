@@ -36,6 +36,16 @@ describe("HEAD method - routing (via ./server app, no HTTP server involved)", ()
     expect(res.status).toBe(404);
   });
 
+  it("BUG: the GET fallback must only trigger for HEAD, not for any unmatched method", async () => {
+    // /api/hello is GET-only. A DELETE request has nothing to do with HEAD's
+    // RFC 9110 fallback rule, so it must 404 like any other unsupported method -
+    // NOT silently run the GET handler. The current guard is
+    // `if (!matchedRouteHandler.handler) ...find("GET", path)` with no method
+    // check, so this currently (incorrectly) returns 200.
+    const res: Response = await get(app, "/api/hello", "DELETE");
+    expect(res.status).toBe(404);
+  });
+
   it("still returns a real body for a normal GET request (contrast check)", async () => {
     const res: Response = await get(app, "/api/hello", "GET");
     const data = await res.json();
@@ -171,6 +181,14 @@ describe("HEAD method - pipelineArchitecture mode", () => {
     expect(headRes.status).toBe(200);
     expect(headRes.body).toBeNull();
   });
+
+  it("BUG: the GET fallback must only trigger for HEAD, not for any unmatched method", async () => {
+    const pipelineApp = new Diesel({ pipelineArchitecture: true });
+    pipelineApp.get("/x", (ctx: any) => ctx.json({ ok: true }));
+
+    const res: Response = await get(pipelineApp, "/x", "DELETE");
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("HEAD method - Cloudflare adaptor (app.cfFetch())", () => {
@@ -213,6 +231,24 @@ describe("HEAD method - Cloudflare adaptor (app.cfFetch())", () => {
     cfApp.post("/body", (ctx: any) => ctx.json({ ok: true }));
 
     const res: Response = await cfGet(cfApp, "/body", "HEAD");
+    expect(res.status).toBe(404);
+  });
+
+  it("BUG (default): the GET fallback must only trigger for HEAD, not for any unmatched method", async () => {
+    const cfApp = new Diesel();
+    cfApp.get("/x", (ctx: any) => ctx.json({ ok: true }));
+
+    const res: Response = await cfGet(cfApp, "/x", "DELETE");
+    expect(res.status).toBe(404);
+  });
+
+  it("pipelineArchitecture:true correctly guards the fallback to HEAD only", async () => {
+    // This is the one branch that already has the `req.method === "HEAD"`
+    // guard - kept as a positive control alongside the BUG cases above.
+    const cfApp = new Diesel({ pipelineArchitecture: true });
+    cfApp.get("/x", (ctx: any) => ctx.json({ ok: true }));
+
+    const res: Response = await cfGet(cfApp, "/x", "DELETE");
     expect(res.status).toBe(404);
   });
 });
