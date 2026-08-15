@@ -74,6 +74,21 @@
       "types": "./dist/adaptor/node/main.d.ts",
       "import": "./dist/adaptor/node/main.js",
       "require": "./dist/adaptor/node/main.js"
+    },
+    "./bun": {
+      "types": "./dist/adaptor/bun/index.d.ts",
+      "import": "./dist/adaptor/bun/index.js",
+      "require": "./dist/adaptor/bun/index.js"
+    },
+    "./deno": {
+      "types": "./dist/adaptor/deno/index.d.ts",
+      "import": "./dist/adaptor/deno/index.js",
+      "require": "./dist/adaptor/deno/index.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/adaptor/cloudflare/index.d.ts",
+      "import": "./dist/adaptor/cloudflare/index.js",
+      "require": "./dist/adaptor/cloudflare/index.js"
     }
   },
   "scripts": {
@@ -103,6 +118,7 @@
   ],
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/deno": "^2.7.0",
     "@types/ejs": "^3.1.5"
   },
   "peerDependencies": {
