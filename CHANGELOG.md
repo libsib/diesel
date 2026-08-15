@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.0
+
+### Features
+
+- **New `diesel-core/bun`, `diesel-core/deno`, and `diesel-core/cloudflare` adaptors** — each exports `connInfo(ctx)` for real client-IP resolution using the runtime's actual mechanism (Bun's `server.requestIP()`, Deno's `Deno.serve` `remoteAddr`, Cloudflare's edge-set `CF-Connecting-IP` header). `diesel-core/bun` and `diesel-core/deno` also export `file(ctx, path, ...)`, a `c.file()`-shaped helper built on each runtime's native file API (`Bun.file`, `Deno.open`) — the Bun version gets automatic HTTP Range/partial-content support for free.
+- Expanded the shared `getMimeType` util from 6 to ~35 recognized extensions (audio/video, fonts, documents, archives).
+
 ## 3.1.0
 
 ### Fixes

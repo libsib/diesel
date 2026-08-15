@@ -1,6 +1,6 @@
 {
   "name": "diesel-core",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Fast, minimal library for building backend APIs on Web Standards",
   "main": "index.js",
   "types": "index.d.ts",
