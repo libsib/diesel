@@ -1,1 +1,0 @@
-sample fixture content for ctx.file() HEAD test

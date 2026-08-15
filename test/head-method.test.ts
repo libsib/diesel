@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'bun:test'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import { app } from './server'
 import Diesel from '../src/main'
 
@@ -55,9 +58,11 @@ describe("HEAD method - body stripping per ctx serializer (inspecting the Respon
   probeApp.get("/html", (ctx: any) =>
     ctx.text("<h1>hi</h1>", 200, { "Content-Type": "text/html; charset=utf-8" })
   );
-  probeApp.get("/file", (ctx: any) =>
-    ctx.file(`${import.meta.dir}/fixtures/sample.txt`)
-  );
+  // Written to the OS temp dir at test-run time so no fixture file needs to
+  // be committed to the repo just for ctx.file() to have something to read.
+  const fileFixturePath = join(tmpdir(), `diesel-head-method-test-${process.pid}.txt`);
+  writeFileSync(fileFixturePath, "sample fixture content for ctx.file() HEAD test\n");
+  probeApp.get("/file", (ctx: any) => ctx.file(fileFixturePath));
   probeApp.get("/stream", (ctx: any) =>
     ctx.stream((controller: ReadableStreamDefaultController) => {
       controller.enqueue(new TextEncoder().encode("streamed-data"));
