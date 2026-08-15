@@ -84,6 +84,11 @@
       "types": "./dist/adaptor/deno/index.d.ts",
       "import": "./dist/adaptor/deno/index.js",
       "require": "./dist/adaptor/deno/index.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/adaptor/cloudflare/index.d.ts",
+      "import": "./dist/adaptor/cloudflare/index.js",
+      "require": "./dist/adaptor/cloudflare/index.js"
     }
   },
   "scripts": {
