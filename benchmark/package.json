@@ -13,6 +13,7 @@
   "dependencies": {
     "@buntal/http": "^0.0.11",
     "@morojs/moro": "^1.6.4",
+    "@oakserver/oak": "^14.1.0",
     "cpeak": "^2.5.0",
     "diesel-core": "1.5.1",
     "elysia": "^1.4.5",

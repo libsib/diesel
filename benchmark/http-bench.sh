@@ -2,7 +2,7 @@
 
 # ──────────────────────────────────────────────
 #  HTTP Framework Benchmark
-#  Frameworks : diesel · hono · elysia · express · fastify · h3
+#  Frameworks : diesel · hono · elysia · express · fastify · h3 · oak
 #  Tools      : wrk · autocannon · oha
 # ──────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ run_benchmark() {
 }
 
 # ── framework list (parallel arrays, bash 3 compatible) ──
-FW_NAMES=("diesel"  "hono"  "elysia"  "express"  "fastify"  "h3")
+FW_NAMES=("diesel"  "hono"  "elysia"  "express"  "fastify"  "h3"  "oak")
 FW_CMDS=(
   "bun run ${SCRIPT_DIR}/src/diesel.ts"
   "bun run ${SCRIPT_DIR}/src/hono.ts"
@@ -123,6 +123,7 @@ FW_CMDS=(
   "bun run ${SCRIPT_DIR}/src/express.ts"
   "bun run ${SCRIPT_DIR}/src/fastify.js"
   "bun run ${SCRIPT_DIR}/src/h3.ts"
+  "bun run ${SCRIPT_DIR}/src/oak.ts"
 )
 
 # ── arg parsing ───────────────────────────────
