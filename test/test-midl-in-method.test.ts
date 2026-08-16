@@ -34,7 +34,7 @@ beforeAll(async () => {
 
   app.mount('/users', user_router)
 
-  server = Bun.serve({ port, fetch: app.fetch })
+  server = Bun.serve({ port, fetch: app.fetch as any })
   console.log('Server running on ' + port)
 })
 
@@ -58,7 +58,6 @@ describe('Middleware isolation — GET /users', () => {
     expect(ranMiddlewares).toContain('auth_check')
   })
 
-  // main test
   it('auth_check_post should NOT run for GET', async () => {
     await fetch(`${baseUrl}/users`)
     expect(ranMiddlewares).not.toContain('auth_check_post')
@@ -82,7 +81,6 @@ describe('Middleware isolation — POST /users', () => {
     expect(ranMiddlewares).toContain('auth_check_post')
   })
 
-  // main test
   it('auth_check should NOT run for POST', async () => {
     await fetch(`${baseUrl}/users`, { method: 'POST' })
     expect(ranMiddlewares).not.toContain('auth_check')

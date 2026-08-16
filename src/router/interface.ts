@@ -11,7 +11,7 @@ export interface Router {
 export interface Find {
     params: Record<string, string> | undefined;
     middlewares: Function[] | undefined;
-    handler: Array<Function> | undefined;
+    handler: Function | undefined;
 }
 
 export class PeepalRouter implements Router {

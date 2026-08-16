@@ -1,31 +1,35 @@
 import { ALL_METHOD, EMPTY_OBJ } from "../constant";
 import { Find } from "./interface";
 
+const toHandlerArray = (handler: Function | Function[]): Function[] =>
+  Array.isArray(handler) ? handler.slice() : [handler];
+
 class TrieNodes {
   children: Record<string, TrieNodes>;
-  handlers: Record<string, Array<Function>>;
-  middlewares: Function[];
+  handlers: Record<string, Function>;
+  middlewares: Record<string, Function[]>;
   params: Record<string, string>;
   constructor() {
     this.children = {};
     this.handlers = {};
-    this.middlewares = [];
+    this.middlewares = {};
     this.params = {};
   }
 }
 
 export class TrieRouter {
   root: TrieNodes;
-  globalMiddlewares: Function[];
+  globalMiddlewares: Record<string, Function[]>;
   constructor() {
     this.root = new TrieNodes();
-    this.globalMiddlewares = [];
+    this.globalMiddlewares = {};
   }
 
-  pushMiddleware(path: string, handlers: Function | Function[]) {
-    if (!Array.isArray(handlers)) handlers = [handlers];
+  pushMiddleware(path: string, handlers: Function | Function[], method: string = ALL_METHOD) {
+    handlers = toHandlerArray(handlers);
     if (path === "/") {
-      this.globalMiddlewares.push(...handlers);
+      if (!this.globalMiddlewares[method]) this.globalMiddlewares[method] = [];
+      this.globalMiddlewares[method].push(...handlers);
       return;
     }
 
@@ -43,20 +47,26 @@ export class TrieRouter {
       node = node.children[key];
     }
 
-    node.middlewares.push(...handlers);
+    if (!node.middlewares[method]) node.middlewares[method] = [];
+    node.middlewares[method].push(...handlers);
   }
 
-  addMiddleware(path: string, handlers: Function | Function[]): void {
-    return this.pushMiddleware(path, handlers);
+  addMiddleware(path: string, handlers: Function | Function[], method: string = ALL_METHOD): void {
+    return this.pushMiddleware(path, handlers, method);
   }
 
   insert(method: string, path: string, handler: Function | Function[]) {
-    const handlers = Array.isArray(handler) ? handler : [handler];
+    const handlers = toHandlerArray(handler);
+    const single_handler = handlers.pop();
+    if (!single_handler) return;
+    const middl = handlers;
+    this.addMiddleware(path, middl, method);
+    
     let node = this.root;
 
     if (path === "/") {
       if (node.handlers[method]) return;
-      node.handlers[method] = handlers;
+      node.handlers[method] = single_handler;
       node.params = EMPTY_OBJ;
       return;
     }
@@ -81,7 +91,7 @@ export class TrieRouter {
       }
     }
     if (node.handlers[method]) return;
-    node.handlers[method] = handlers;
+    node.handlers[method] = single_handler;
   }
 
   add(method: string, path: string, handler: Function | Function[]) {
@@ -90,10 +100,16 @@ export class TrieRouter {
 
   search(method: string, path: string): Find {
     let node = this.root;
+    const isAllMethod = method === ALL_METHOD;
 
     const pathSegments = path.split("/");
 
-    let collected_middlewares = this.globalMiddlewares.slice();
+    let collected_middlewares = isAllMethod
+      ? (this.globalMiddlewares[ALL_METHOD] ?? []).slice()
+      : [
+          ...(this.globalMiddlewares[method] ?? []),
+          ...(this.globalMiddlewares[ALL_METHOD] ?? []),
+        ];
     let paramObject: Record<string, string> | undefined;
 
     for (let i = 0; i < pathSegments.length; i++) {
@@ -104,14 +120,18 @@ export class TrieRouter {
       const wildcardChild = node.children["*"];
       if (node.children[element]) {
         if (wildcardChild) {
-          const mw = wildcardChild.middlewares;
-          for (let j = 0; j < mw.length; j++) collected_middlewares.push(mw[j]);
+          const mwMethod = wildcardChild.middlewares[method];
+          const mwAll = isAllMethod ? undefined : wildcardChild.middlewares[ALL_METHOD];
+          if (mwAll) for (let j = 0; j < mwAll.length; j++) collected_middlewares.push(mwAll[j]);
+          if (mwMethod) for (let j = 0; j < mwMethod.length; j++) collected_middlewares.push(mwMethod[j]);
         }
         node = node.children[element]!;
       } else if (node.children[":"]) {
         if (wildcardChild) {
-          const mw = wildcardChild.middlewares;
-          for (let j = 0; j < mw.length; j++) collected_middlewares.push(mw[j]);
+          const mwMethod = wildcardChild.middlewares[method];
+          const mwAll = isAllMethod ? undefined : wildcardChild.middlewares[ALL_METHOD];
+          if (mwAll) for (let j = 0; j < mwAll.length; j++) collected_middlewares.push(mwAll[j]);
+          if (mwMethod) for (let j = 0; j < mwMethod.length; j++) collected_middlewares.push(mwMethod[j]);
         }
         node = node.children[":"];
         if (!paramObject) paramObject = {};
@@ -127,8 +147,15 @@ export class TrieRouter {
         };
       }
     }
-    if (node.middlewares.length > 0) {
-      const mw = node.middlewares;
+    
+    if (!isAllMethod && node.middlewares[ALL_METHOD]?.length > 0) {
+      const mw = node.middlewares[ALL_METHOD];
+      for (let j = 0; j < mw.length; j++) {
+        collected_middlewares.push(mw[j]);
+      }
+    }
+    if (node.middlewares[method]?.length > 0) {
+      const mw = node.middlewares[method];
       for (let j = 0; j < mw.length; j++) {
         collected_middlewares.push(mw[j]);
       }
@@ -162,14 +189,17 @@ export class TrieRouter {
   }
 }
 
-// const t1 = new TrieRouter()
-// t1.add("GET", "/user/:id/profile", () => "profile");
-// t1.add("GET", "/user/:name/settings", () => "settings");
+const t1 = new TrieRouter()
+t1.pushMiddleware("/user/:id/profile", () =>{})
+const a = () => { }
+const b = () => {}
+t1.add("GET", "/user/:id/profile", [a,b, () => "profile"]);
+t1.add("GET", "/user/:name/settings", () => "settings");
 
-// const profileResult = t1.find("GET", "/user/123/profile");
+const profileResult = t1.find("GET", "/user/123/profile");
 // const settingsResult = t1.find("DELETE", "/user/123/settings");
 
-// console.log("prifleResult ", profileResult)
+console.log("prifleResult ", profileResult)
 // console.log("settingsResult ", settingsResult)
 
 

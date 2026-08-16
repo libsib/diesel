@@ -31,35 +31,35 @@ beforeAll(() => {
 describe("TrieRouter - Router Tests", () => {
   test("should match org/team route", () => {
     const result = router.find("GET", "/orgs/apple/teams/design");
-    expect(result.handler?.[0]({} as any)).toBe("team");
+    expect(result.handler?.({} as any)).toBe("team");
   });
 
   test("should match root '/' route", () => {
     const result = router.find("GET", "/");
-    expect(result.handler?.[0]({} as any)).toBe("root");
+    expect(result.handler?.({} as any)).toBe("root");
   });
 
   test("should match static routes", () => {
     const result = router.find("GET", "/about");
-    expect(result.handler?.[0]({} as any)).toBe("about page");
+    expect(result.handler?.({} as any)).toBe("about page");
   });
 
   test("should match dynamic route", () => {
     const result = router.find("GET", "/user/123");
-    expect(result.handler?.[0]({} as any)).toBe("dynamic user");
+    expect(result.handler?.({} as any)).toBe("dynamic user");
   });
 
   test("should match wildcard route", () => {
     const result = router.find("GET", "/files/images/2025/photo.png");
-    expect(result.handler?.[0]({} as any)).toBe("catch all");
+    expect(result.handler?.({} as any)).toBe("catch all");
   });
 
   test("should correctly handle multiple HTTP methods on same path", () => {
     const getResult = router.find("GET", "/api/data");
     const postResult = router.find("POST", "/api/data");
 
-    expect(getResult.handler?.[0]({} as any)).toBe("GET handler");
-    expect(postResult.handler?.[0]({} as any)).toBe("POST handler");
+    expect(getResult.handler?.({} as any)).toBe("GET handler");
+    expect(postResult.handler?.({} as any)).toBe("POST handler");
   });
 
   test("should return undefined handler when method does not match", () => {
@@ -70,12 +70,12 @@ describe("TrieRouter - Router Tests", () => {
 
   test("should handle deeply nested dynamic route", () => {
     const result = router.find("GET", "/a/123/c/456/e");
-    expect(result.handler?.[0]({} as any)).toBe("nested");
+    expect(result.handler?.({} as any)).toBe("nested");
   });
 
   test("should prefer exact match over dynamic match", () => {
     const result = router.find("GET", "/user/profile");
-    expect(result.handler?.[0]({} as any)).toBe("static profile");
+    expect(result.handler?.({} as any)).toBe("static profile");
   });
 
   test("should return undefined handler for non-existent route", () => {
@@ -146,7 +146,7 @@ describe("TrieRouter - with Middlewares check", () => {
     let output: any = "";
 
     for (const fn of result.middlewares ?? []) fn(ctx);
-    if (result.handler) output = result.handler[0](ctx);
+    if (result.handler) output = result.handler(ctx);
 
     expect(output).toBe("mw1;mw2;handler;");
   });
@@ -179,7 +179,7 @@ describe("TrieRouter - with Middlewares check", () => {
 
     const result1 = router.find("GET", "/user/123");
     for (const fn of result1.middlewares ?? []) fn(ctx1);
-    if (result1.handler) result1.handler[0](ctx1);
+    if (result1.handler) result1.handler(ctx1);
 
     expect(ctx1.get("/user/*")).toBe("/user/* middleware");
     expect(ctx1.get("id")).toBe("123");
@@ -198,7 +198,7 @@ describe("TrieRouter - with Middlewares check", () => {
     const result2 = router.find("GET", "/user/static");
     let output: any;
     for (const fn of result2.middlewares ?? []) fn(ctx2);
-    if (result2.handler) output = result2.handler[0](ctx2);
+    if (result2.handler) output = result2.handler(ctx2);
 
     expect(output).toBe("user/static");
   });
@@ -229,7 +229,7 @@ describe("path mid check", () => {
   test("it should have midl /user/** ", () => {
     const result = router.find("GET", "/user/me");
     expect(result.middlewares).toHaveLength(1);
-    expect(result.handler).toHaveLength(1)
+    expect(typeof result.handler).toBe("function");
   });
 });
 
@@ -247,17 +247,17 @@ describe("dynamic test again with dff", () => {
 
   test("it should match /users/me/settings", () => {
     const result = router.find("GET", "/users/me/settings");
-    expect(result.handler?.[0](result.params as any)).toBe("settings");
+    expect(result.handler?.(result.params as any)).toBe("settings");
   });
 
   test("it should match /users/:id/posts", () => {
     const result = router.find("GET", "/users/123/posts");
-    expect(result.handler?.[0](result.params as any)).toBe("posts");
+    expect(result.handler?.(result.params as any)).toBe("posts");
   });
 
   test("it should match /users/me/posts", () => {
     const result = router.find("GET", "/users/me/posts");
-    expect(result.handler?.[0](result.params as any)).toBe("posts");
+    expect(result.handler?.(result.params as any)).toBe("posts");
   });
 });
 

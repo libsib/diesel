@@ -446,12 +446,8 @@ export default class Diesel {
 
     let finalResult;
     if (matchedRouteHandler.handler) {
-      const handlers = matchedRouteHandler.handler;
-      for (let i = 0; i < handlers.length; i++) {
-        const result = handlers[i](ctx);
-        finalResult = isPromise(result) ? await result : result;
-        if (finalResult) break;
-      }
+      const result = matchedRouteHandler.handler(ctx);
+      finalResult = isPromise(result) ? await result : result;
     }
 
     // onSend
