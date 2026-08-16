@@ -9,18 +9,6 @@ bun run bench-ctx.ts
 echo ""
 
 echo "=============================="
-echo " Running Promise Test"
-echo "=============================="
-bun run test-promise.ts
-echo ""
-
-echo "=============================="
-echo " Running Path Test"
-echo "=============================="
-bun run test-path.ts
-echo ""
-
-echo "=============================="
 echo " running Router Test "
 bun run router/bench.ts
 echo ""
