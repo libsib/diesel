@@ -3,9 +3,7 @@ import Diesel from "../../src/main";
 
 const PORT = parseInt(process.env.PORT || "3000");
 
-export const app = new Diesel({ pipelineArchitecture: true });
-
-app.addHooks("onRequest", () => {})
+export const app = new Diesel({ pipelineArchitecture: false });
 
 app.get("/", (c: Context) => {
   return c.json({ message: "Hi there!", framework: "diesel" });
@@ -25,6 +23,6 @@ app.get("/user/:id/post/:postId", (c: Context) => {
 
 console.log(`diesel is running on port ${PORT}`)
 Bun.serve({
-  fetch: app.fetch,
+  fetch: app.fetch as any,
   port: PORT,
 })
