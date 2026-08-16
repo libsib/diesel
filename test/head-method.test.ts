@@ -144,25 +144,28 @@ describe("HEAD method - explicit registration & middleware", () => {
   });
 });
 
-describe("HEAD method - accepted behavior (raw Response bypasses body stripping, not treated as a bug)", () => {
-  // ctx.text()/json()/send()/file()/stream() null the body themselves, but
-  // anything that hands back a `Response` WITHOUT going through those helpers
-  // skips that logic entirely. For error/404 paths this is accepted: the
-  // response is identical for GET and HEAD (no data-leak risk, no GET/HEAD
-  // inconsistency), so we're not chasing RFC 9110 purity here. These tests
-  // just pin the current behavior so a future change to it is deliberate.
+describe("HEAD method - raw Response paths are stripped too (central guard)", () => {
+  // ctx.text()/json()/send()/file()/stream() null the body themselves as an
+  // early-exit optimization (skips real work like disk I/O for ctx.file()).
+  // Anything that hands back a `Response` WITHOUT going through those helpers
+  // (onError hooks, the default 404 fallback, custom middleware) used to skip
+  // HEAD stripping entirely. A central guard in stripHeadBody() (utils/request.util.ts),
+  // applied once to whatever Response #handleRequests/#buildFetchHandler/cfFetch()
+  // resolve to, now catches those cases too - regardless of how the body was built.
 
-  it("an onError hook returning a raw Response keeps its body on HEAD (accepted)", async () => {
+  it("an onError hook returning a raw Response is stripped on HEAD", async () => {
     // ./server's onError hook does `return new Response(JSON.stringify(...), {status:500})`
     const headRes: Response = await get(app, "/error", "HEAD");
     expect(headRes.status).toBe(500);
-    expect(await headRes.clone().text()).toBe('{"message":"Something went wrong!"}');
+    expect(headRes.body).toBeNull();
+    expect(await headRes.clone().text()).toBe("");
   });
 
-  it("the default 404 'route not found' response keeps its body on HEAD (accepted)", async () => {
+  it("the default 404 'route not found' response is stripped on HEAD", async () => {
     const headRes: Response = await get(app, "/does-not-exist", "HEAD");
     expect(headRes.status).toBe(404);
-    expect(await headRes.clone().text()).toBe('{"error":"404 Route not found for /does-not-exist"}');
+    expect(headRes.body).toBeNull();
+    expect(await headRes.clone().text()).toBe("");
   });
 });
 
