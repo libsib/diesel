@@ -341,7 +341,7 @@ export default class Diesel {
           req,
           undefined,
           path,
-          matchedRouteHandler?.params || EMPTY_OBJ,
+          matchedRouteHandler?.params ?? EMPTY_OBJ,
           env,
           executionContext,
         );
@@ -398,7 +398,7 @@ export default class Diesel {
           req,
           server,
           path,
-          matchedRouteHandler?.params || EMPTY_OBJ,
+          matchedRouteHandler?.params ?? EMPTY_OBJ,
           env,
           executionContext,
         );
@@ -432,7 +432,7 @@ export default class Diesel {
       req,
       server,
       path,
-      matchedRouteHandler?.params || EMPTY_OBJ,
+      matchedRouteHandler?.params ?? EMPTY_OBJ,
       env,
       executionContext,
     );
@@ -599,7 +599,7 @@ export default class Diesel {
         ctx.executionContext,
       );
 
-      if (!ctx.headers || !response) return response;
+      if (ctx.headers === undefined || response === undefined) return response;
 
       const merged = new Headers(response.headers);
       for (const [key, value] of ctx.headers) {
@@ -626,7 +626,7 @@ export default class Diesel {
       const path = ctx.path?.slice(prefixLength) || "/";
       const matchedRouteHandler = child.router.find(ctx.req.method, path);
       ctx.path = path;
-      ctx.params = matchedRouteHandler?.params || EMPTY_OBJ;
+      ctx.params = matchedRouteHandler?.params ?? EMPTY_OBJ;
       return child
         .#execute_handlers(ctx, matchedRouteHandler)
         .catch((err: any) => this.handleError(err, ctx));
