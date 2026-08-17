@@ -42,7 +42,7 @@ app.get("/api/user/profile", async (ctx: ContextType) => {
 
 ### Built-in JWT Authentication Filters
 **`authenticateJwt()`** from `diesel-core/jwt`
-`authenticateJwt({ app, jwt })` provides an inbuilt JWT authentication middleware you can drop straight into `filter()`'s `authenticate` array. Once applied, you can access the user context via `ctx.get("user")`.
+`authenticateJwt({ app, jwt, jwtSecret })` provides an inbuilt JWT authentication middleware you can drop straight into `filter()`'s `authenticate` array. Once applied, you can access the user context via `ctx.get("user")`.
 
 
 Example Usage:
@@ -52,12 +52,12 @@ import { filter } from "diesel-core/filter";
 import { authenticateJwt } from "diesel-core/jwt";
 import jwt from 'jsonwebtoken'
 
-const app = new Diesel({ jwtSecret: "your-secret" });
+const app = new Diesel();
 
 // Define routes and apply the filter
 app.use(filter({
   publicRoutes: ["/api/user/register", "/api/user/login", "/cookie"], // Public routes
-  authenticate: [authenticateJwt({ app, jwt })], // Inbuilt jwt middleware
+  authenticate: [authenticateJwt({ app, jwt, jwtSecret: "your-secret" })], // Inbuilt jwt middleware
 }));
 
   // and you will get `user` Context in ctx.get('user')
@@ -68,7 +68,7 @@ app.use(filter({
 
 ```
 **`authenticateJwtDB()`** from `diesel-core/jwt`
-`authenticateJwtDB({ app, userModel, jwt })` integrates JWT authentication with a database model for user validation.
+`authenticateJwtDB({ app, userModel, jwt, jwtSecret })` integrates JWT authentication with a database model for user validation.
 
 Example:
 
@@ -79,12 +79,12 @@ import { authenticateJwtDB } from "diesel-core/jwt";
 import jwt from 'jsonwebtoken'
 import UserModel from "./schema/userModel"
 
-const app = new Diesel({ jwtSecret: "your-secret" });
+const app = new Diesel();
 
 // Define routes and apply the filter
 app.use(filter({
   publicRoutes: ["/api/user/register", "/api/user/login", "/cookie"], // Public routes
-  authenticate: [authenticateJwtDB({ app, userModel: UserModel, jwt })], // Inbuilt jwt + DB middleware
+  authenticate: [authenticateJwtDB({ app, userModel: UserModel, jwt, jwtSecret: "your-secret" })], // Inbuilt jwt + DB middleware
 }));
 
   // and you will get `user` Context in ctx.get('user')
@@ -109,7 +109,7 @@ filter({ publicRoutes: ["/api/user/register", "/api/user/login"] })
 filter({ authenticate: [authJwt, rateLimiter] })
 ```
 
-* Combine with `authenticateJwt({ app, jwt })` or `authenticateJwtDB({ app, userModel, jwt })` from `diesel-core/jwt` inside `authenticate` for built-in JWT support instead of writing your own.
+* Combine with `authenticateJwt({ app, jwt, jwtSecret })` or `authenticateJwtDB({ app, userModel, jwt, jwtSecret })` from `diesel-core/jwt` inside `authenticate` for built-in JWT support instead of writing your own.
 
 ### Use Cases
 
