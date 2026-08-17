@@ -206,7 +206,6 @@ DieselJS allows you to enhance your request handling by utilizing hooks at vario
 
 1. **onRequest**: Triggered when a request is received.
 2. **preHandler**: Invoked just before the request handler executes.
-<!-- 3. **postHandler**: Executed after the request handler completes but before sending the response. -->
 3. **onSend**: Called just before the response is sent to the client.
 4. **onError** : Executes if any error occurs
 

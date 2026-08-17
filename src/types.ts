@@ -62,7 +62,6 @@ export type HttpMethodLower = Lowercase<HttpMethod>;
 export type HookType =
     | "onRequest"
     | "preHandler"
-    | "postHandler"
     | "onSend"
     | "onError"
     | "onClose"
@@ -85,7 +84,6 @@ export interface onSend {
 export interface Hooks {
     onRequest: onRequest[] | null;
     preHandler: HookFunction[] | null;
-    postHandler: HookFunction[] | null;
     onSend: onSend[] | null;
     onError: onError[] | null;
     onClose: HookFunction[] | null;
@@ -147,7 +145,6 @@ export interface CompileConfig {
     hasOnReqHook: boolean,
     hasPreHandlerHook: boolean,
     hasOnError: boolean,
-    hasPostHandlerHook: boolean,
     hasOnSendHook: boolean
 }
 

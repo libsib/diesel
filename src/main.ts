@@ -50,7 +50,6 @@ export default class Diesel {
   router: Router;
   hasOnReqHook: boolean;
   hasPreHandlerHook: boolean;
-  hasPostHandlerHook: boolean;
   hasOnSendHook: boolean;
   hasOnError: boolean;
   hooks: Hooks;
@@ -119,13 +118,11 @@ export default class Diesel {
     this.corsConfig = null;
     this.hasOnReqHook = false;
     this.hasPreHandlerHook = false;
-    this.hasPostHandlerHook = false;
     this.hasOnSendHook = false;
     this.hasOnError = false;
     this.hooks = {
       onRequest: null,
       preHandler: null,
-      postHandler: null,
       onSend: null,
       onError: null,
       onClose: null,
@@ -264,10 +261,6 @@ export default class Diesel {
       case "preHandler":
         (this.hooks.preHandler ??= []).push(fnc as HookFunction);
         this.hasPreHandlerHook = true;
-        break;
-      case "postHandler":
-        (this.hooks.postHandler ??= []).push(fnc as HookFunction);
-        this.hasPostHandlerHook = true;
         break;
       case "onSend":
         (this.hooks.onSend ??= []).push(fnc as onSend);
