@@ -248,10 +248,15 @@ export const build_request_pipeline_latest = (diesel: Diesel): Function => {
   const handler = `let finalResult;
   if (matchedRouteHandler.handler !== undefined) {
     const handlers = matchedRouteHandler.handler;
-    for (let i = 0; i < handlers.length; i++) {
-      const result = handlers[i](ctx);
+    if (handlers.length === 1) {
+      const result = handlers[0](ctx);
       finalResult = isPromise(result) ? await result : result;
-      if (finalResult) break;
+    } else {
+      for (let i = 0; i < handlers.length; i++) {
+        const result = handlers[i](ctx);
+        finalResult = isPromise(result) ? await result : result;
+        if (finalResult) break;
+      }
     }
   }`;
   pipeline.push(handler);

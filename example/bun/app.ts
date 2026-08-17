@@ -5,9 +5,7 @@ import type { CookieOptions } from "diesel-core";
 import type { BunRequest } from "bun";
 import { authenticateJwt } from "../../src/middlewares/jwt";
 
-const app = new Diesel({
-  jwtSecret:'linux'
-})
+const app = new Diesel()
 const SECRET_KEY = "linux";
 
 

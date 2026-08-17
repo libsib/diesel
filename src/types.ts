@@ -154,7 +154,6 @@ export interface CompileConfig {
 export type errorFormat = 'json' | 'text' | 'html' | string
 
 export interface DieselOptions {
-    jwtSecret?: string;
     baseApiUrl?: string;
     idleTimeOut?: number;
     prefixApiUrl?: string;

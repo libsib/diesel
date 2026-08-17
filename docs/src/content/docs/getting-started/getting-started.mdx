@@ -56,7 +56,6 @@ You can pass options to the `Diesel` constructor to configure its behaviour:
 const app = new Diesel({
   logger: true,             // enable built-in request/response logger
   errorFormat: "json",      // "json" (default) | "text"
-  jwtSecret: "my-secret",   // secret used by authenticateJwt / authenticateJwtDB
   idleTimeOut: 10,          // Bun server idle timeout in seconds
   baseApiUrl: "/api/v1",    // prefix added to all file-based routes
   prefixApiUrl: "",         // prefix added to all routes

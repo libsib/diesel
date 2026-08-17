@@ -7,7 +7,7 @@ export { authenticateJwtMiddleware, authenticateJwtDbMiddleware };
 type authenticateJwtT = {
     app:Diesel,
     jwt:any,
-    jwtSecret?:string,
+    jwtSecret:string,
     routes?:string[]
 }
 
@@ -15,15 +15,13 @@ type authenticateJwtDBT = {
     app:Diesel,
     userModel:any,
     jwt:any,
-    jwtSecret?:string,
+    jwtSecret:string,
     routes?:string[]
 }
 
 export const authenticateJwt = (options:authenticateJwtT) => {
     if (!options.app) throw new Error("Diesel app is not defined, please provide app to authenticateJwt Function")
     if (!options.jwt) throw new Error("JWT library is not defined, please provide jwt to authenticateJwt Function")
-
-    if (!options.jwtSecret) options.jwtSecret = options.app.user_jwt_secret
     if (!options.jwtSecret) throw new Error("jwtSecret is required for authenticateJwt")
 
     const routes: undefined | string[] = options.routes
@@ -59,7 +57,6 @@ export const authenticateJwtDB = (options:authenticateJwtDBT) => {
     if (!options.jwt)
         throw new Error("JWT library is not defined, please provide jwt to authenticateJwt Function")
 
-    if (!options.jwtSecret) options.jwtSecret = options.app.user_jwt_secret
     if (!options.jwtSecret) throw new Error("jwtSecret is required for authenticateJwtDB")
 
     const routes = options.routes

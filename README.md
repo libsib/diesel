@@ -185,10 +185,10 @@ filter({ authenticate: [authJwt, rateLimiter] }) // chain multiple auth middlewa
 ```javascript
 import { authenticateJwt } from "diesel-core/jwt";
 
-const app = new Diesel({ jwtSecret: "your-secret" });
+const app = new Diesel();
 app.use(filter({
   publicRoutes: ['/login'],
-  authenticate: [authenticateJwt({ app, jwt })],
+  authenticate: [authenticateJwt({ app, jwt, jwtSecret: "your-secret" })],
 }));
 ```
 

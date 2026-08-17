@@ -11,7 +11,6 @@ import {
   onError,
   onRequest,
   onSend,
-  RouteHandler,
   RouteNotFoundHandler,
   RuntimeServer,
   TempRouteEntry,
@@ -39,7 +38,7 @@ import { handleRouteNotFound, runHooks } from "./utils/request.util.js";
 
 import { HTTPException } from "./http-exception";
 import { Router, RouterFactory } from "./router/interface.js";
-import { ALL_METHOD, EMPTY_OBJ, supportedMethods } from "./constant.js";
+import { ALL_METHOD, EMPTY_OBJ } from "./constant.js";
 import { isPromise } from "./utils/promise.js";
 
 export default class Diesel {
@@ -58,7 +57,6 @@ export default class Diesel {
   corsConfig: corsT;
   // private serverInstance: BunServer | null; // unused now that listen()/close() are commented out
   staticFiles: any | undefined;
-  user_jwt_secret: string | undefined;
   baseApiUrl: string;
   idleTimeOut: number;
   routeNotFoundFunc: (
@@ -74,17 +72,6 @@ export default class Diesel {
   // the request path where user wants static files should be server
   staticRequestPath: string | undefined = undefined;
 
-  get!: RouteHandler;
-  post!: RouteHandler;
-  put!: RouteHandler;
-  patch!: RouteHandler;
-  delete!: RouteHandler;
-  any!: RouteHandler;
-  head!: RouteHandler;
-  options!: RouteHandler;
-  propfind!: RouteHandler;
-  all!: RouteHandler;
-
   /**
    * `.fetch` is the entry point of your app — pass it directly to a server,
    * e.g. `Bun.serve({ fetch: app.fetch })` or `export default { fetch: app.fetch }`.
@@ -98,23 +85,12 @@ export default class Diesel {
   declare fetch: DieselFetchHandler;
 
   constructor(options: DieselOptions = {}) {
-    supportedMethods.forEach((method) => {
-      (this as any)[method.toLocaleLowerCase()] = (
-        path: string,
-        ...handlers: any
-      ): this => {
-        this.addRoute(method as HttpMethod, path, handlers);
-        return this;
-      };
-    });
-
     const {
       router = "t2",
       routerInstance,
       errorFormat = "json",
       prefixApiUrl = "",
       baseApiUrl = "",
-      jwtSecret,
       idleTimeOut = 10,
       pipelineArchitecture = false,
     } = options;
@@ -138,8 +114,7 @@ export default class Diesel {
     this.routes = {};
     this.idleTimeOut = idleTimeOut ?? 10;
     this.baseApiUrl = baseApiUrl || "";
-    this.user_jwt_secret = jwtSecret || process.env.DIESEL_JWT_SECRET;
-    this.tempRoutes = new Map<string, TempRouteEntry>();
+    this.tempRoutes = null;
     this.tempMiddlewares = null;
     this.corsConfig = null;
     this.hasOnReqHook = false;
@@ -161,6 +136,50 @@ export default class Diesel {
     this.routeNotFoundFunc = () => {};
 
     this.compileConfig = null;
+  }
+
+  // HTTP verb methods live on the prototype (shared across every instance)
+  // instead of being re-created as per-instance closures in the
+  // constructor — avoids allocating 10 closures on every `new Diesel()`.
+  get(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("GET", path, handlers);
+    return this;
+  }
+  post(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("POST", path, handlers);
+    return this;
+  }
+  put(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("PUT", path, handlers);
+    return this;
+  }
+  patch(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("PATCH", path, handlers);
+    return this;
+  }
+  delete(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("DELETE", path, handlers);
+    return this;
+  }
+  any(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("ANY", path, handlers);
+    return this;
+  }
+  head(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("HEAD", path, handlers);
+    return this;
+  }
+  options(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("OPTIONS", path, handlers);
+    return this;
+  }
+  propfind(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("PROPFIND", path, handlers);
+    return this;
+  }
+  all(path: string, ...handlers: handlerFunction[]): this {
+    this.addRoute("ALL", path, handlers);
+    return this;
   }
 
   // experimental for sub routing using single ton
@@ -447,10 +466,15 @@ export default class Diesel {
     let finalResult;
     if (matchedRouteHandler.handler !== undefined) {
       const handlers = matchedRouteHandler.handler;
-      for (let i = 0; i < handlers.length; i++) {
-        const result = handlers[i](ctx);
+      if (handlers.length === 1) {
+        const result = handlers[0](ctx);
         finalResult = isPromise(result) ? await result : result;
-        if (finalResult) break;
+      } else {
+        for (let i = 0; i < handlers.length; i++) {
+          const result = handlers[i](ctx);
+          finalResult = isPromise(result) ? await result : result;
+          if (finalResult) break;
+        }
       }
     }
 
@@ -679,7 +703,10 @@ export default class Diesel {
         `Error in addRoute: Method must be a string. Received: ${typeof method}`,
       );
 
-    this.tempRoutes?.set(path + "::" + method, { method, handlers });
+    (this.tempRoutes ??= new Map<string, TempRouteEntry>()).set(
+      path + "::" + method,
+      { method, handlers },
+    );
     method = method === "ANY" ? ALL_METHOD : method;
     this.router.add(method, path, handlers as unknown as Function[]);
   }
