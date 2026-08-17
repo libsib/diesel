@@ -15,13 +15,6 @@ import { EMPTY_OBJ } from "./constant";
 //   return ejsInstance;
 // }
 
-const typeMap: any = {
-  string: "text/plain; charset=utf-8",
-  object: "application/json; charset=utf-8",
-  Uint8Array: "application/octet-stream",
-  ArrayBuffer: "application/octet-stream",
-};
-
 const TEXT_PLAIN_CT = "text/plain; charset=utf-8";
 // Shared init objects — Response constructor copies headers internally, safe to reuse
 const _TEXT_INIT: ResponseInit = { headers: { "Content-Type": TEXT_PLAIN_CT } };
