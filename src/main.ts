@@ -317,7 +317,7 @@ export default class Diesel {
           req.method as HttpMethod,
           path,
         );
-        if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
+        if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           undefined,
@@ -374,7 +374,7 @@ export default class Diesel {
           req.method as HttpMethod,
           path,
         );
-        if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
+        if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           server,
@@ -407,7 +407,7 @@ export default class Diesel {
       req.method as HttpMethod,
       path,
     );
-    if (!matchedRouteHandler.handler && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
+    if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
 
     const ctx = new Context(
       req,
@@ -445,7 +445,7 @@ export default class Diesel {
     }
 
     let finalResult;
-    if (matchedRouteHandler.handler) {
+    if (matchedRouteHandler.handler !== undefined) {
       const handlers = matchedRouteHandler.handler;
       for (let i = 0; i < handlers.length; i++) {
         const result = handlers[i](ctx);

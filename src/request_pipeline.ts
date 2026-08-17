@@ -246,7 +246,7 @@ export const build_request_pipeline_latest = (diesel: Diesel): Function => {
 
   // Handle the handler
   const handler = `let finalResult;
-  if (matchedRouteHandler.handler) {
+  if (matchedRouteHandler.handler !== undefined) {
     const handlers = matchedRouteHandler.handler;
     for (let i = 0; i < handlers.length; i++) {
       const result = handlers[i](ctx);
