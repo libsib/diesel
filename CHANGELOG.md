@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.4.0
+
+### Performance
+
+- **`new Diesel()` construction is ~100x faster** (~7.1 µs → ~0.07 µs per instance). The 10 HTTP-verb methods (`get`/`post`/`put`/.../`all`) were previously re-created as per-instance closures inside the constructor on every single construction; they now live once on the prototype, shared across all instances. Matters most for apps that create many sub-routers, and for cold starts on serverless/edge runtimes (Workers, Lambda, Deno Deploy) where construction happens on every boot.
+- `tempRoutes` is now lazily created on the first `addRoute()` call instead of eagerly allocated in the constructor, matching the existing `tempMiddlewares` pattern.
+- Router handler-lookup checks (`matched.handler`) switched from truthy/falsy checks (`!x`, `if (x)`) to strict `undefined` checks (`=== undefined`, `!== undefined`) — a single identity comparison is cheaper than a check that has to account for every JS falsy value, since the router's `handler` field is only ever `Array<Function> | undefined`.
+- `#execute_handlers` and the generated pipeline handler now skip the loop entirely when a route has exactly one handler (the common case).
+
+### Breaking changes
+
+- **`jwtSecret` removed from `DieselOptions`** (`new Diesel({ jwtSecret })` no longer does anything) and the `app.user_jwt_secret` field/`process.env.DIESEL_JWT_SECRET` fallback are gone. `authenticateJwt`/`authenticateJwtDB` (from `diesel-core/jwt`) now **require** `jwtSecret` to be passed directly in their own options — the same place you already pass the `jwt` library instance. Update `new Diesel({ jwtSecret: "..." })` + `authenticateJwt({ app, jwt })` to `new Diesel()` + `authenticateJwt({ app, jwt, jwtSecret: "..." })`.
+- **Dead `postHandler` hook removed.** `app.addHooks("postHandler", fn)` was accepted and tracked internally but never actually invoked anywhere in the request pipeline — registering it silently did nothing. It's no longer a recognized hook type; calling `addHooks` with it now throws `Unknown hook type: postHandler` instead of quietly no-op'ing. If you need "after handler" behavior, use the `onSend` hook, which does run and can inspect/modify the outgoing response.
+
 ## 3.3.0
 
 ### Features
