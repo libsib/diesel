@@ -30,15 +30,18 @@ describe("PeepalRouter", () => {
 
 describe("BUG: param name collision on shared trie nodes (peepal-router)", () => {
   // peepal-router fixes the backtracking bug above (literal-vs-dynamic
-  // sibling routes), but still shares this bug with diesel's own TrieRouter:
-  // a node at a given tree position stores a single param name, even when
-  // routes registered at that position use different param names. Whichever
-  // route was inserted LAST wins the name for ALL routes sharing that node.
+  // sibling routes), but still shares this bug with diesel's own TrieRouter
+  // (see the identical failing test in trie.test.ts): a node at a given tree
+  // position stores a single param name, even when routes registered at that
+  // position use different param names. Whichever route was inserted LAST
+  // wins the name for ALL routes sharing that node.
   //
-  // This test currently FAILS against peepal-router@0.5.0. It should pass
-  // once param resolution is scoped per route instead of shared per node.
-  // Do not switch diesel's default router to PeepalRouter until this is
-  // fixed upstream and this test passes.
+  // This test currently FAILS against peepal-router@0.5.1, same as it fails
+  // against diesel's own default router - it's a known limitation shared by
+  // both implementations, not a peepal-specific regression. Not a blocker on
+  // making PeepalRouter the default; it should still be fixed upstream in
+  // peepal-router once param resolution is scoped per route instead of
+  // shared per node.
 
   test("BUG: different param names for same method on diverging branches", () => {
     const router = new PeepalRouter();

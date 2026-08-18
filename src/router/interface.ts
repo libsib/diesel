@@ -35,18 +35,14 @@ export class PeepalRouter implements Router {
     }
 
     find(method: string, path: string): Find {
-        const result = this.router.search(method, path);
-        return {
-            params: result.params,
-            middlewares: result.middlewares,
-            handler: result.handler,
-        };
+        return this.router.search(method, path);
     }
 }
 
 // picks which router implementation to use, based on the `router`
-// option passed to `new Diesel({ router: "..." })`. Defaults to our
-// own trie router if you pass nothing or an unknown name.
+// option passed to `new Diesel({ router: "..." })`. Defaults to
+// peepal-router if you pass nothing or an unknown name - our own
+// trie router (src/router/trie.ts) is still available via 'trie'/'t2'.
 export class RouterFactory {
     static create(name?: string): Router {
         switch (name) {
@@ -56,7 +52,7 @@ export class RouterFactory {
                 return new TrieRouter()
             case 'peepal':
                 return new PeepalRouter()
-            default: return new TrieRouter()
+            default: return new PeepalRouter()
         }
     }
 }
