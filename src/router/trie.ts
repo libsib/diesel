@@ -1,11 +1,13 @@
 import { ALL_METHOD, EMPTY_OBJ } from "../constant";
 import { Find } from "./interface";
 
+// one node in the tree, one segment of a path. e.g for "/user/:id",
+// there's a node for "user" and a child node for ":" under it.
 class TrieNodes {
-  children: Record<string, TrieNodes>;
-  handlers: Record<string, Array<Function>>;
-  middlewares: Function[];
-  params: Record<string, string>;
+  children: Record<string, TrieNodes>; // child nodes, keyed by path segment (or ":" for a param, "*" for wildcard)
+  handlers: Record<string, Array<Function>>; // handlers at this node, keyed by http method
+  middlewares: Function[]; // middlewares registered exactly at this node's path
+  params: Record<string, string>; // param name for this node, keyed by method (e.g. GET -> "id" for :id)
   constructor() {
     this.children = {};
     this.handlers = {};
@@ -14,14 +16,25 @@ class TrieNodes {
   }
 }
 
+// our default router. Splits every path into segments and walks a
+// tree, one node per segment, instead of testing every route with a
+// regex. Faster for apps with a lot of routes.
 export class TrieRouter {
   root: TrieNodes;
-  globalMiddlewares: Function[];
+  globalMiddlewares: Function[]; // middlewares added on "/", run for every request
   constructor() {
     this.root = new TrieNodes();
     this.globalMiddlewares = [];
   }
 
+  /**
+   * Registers middleware for a path. "/" is treated specially and
+   * goes into globalMiddlewares instead of a tree node, since it
+   * applies to literally everything.
+   *
+   * @param path - path this middleware should run for
+   * @param handlers - one middleware function, or an array of them
+   */
   pushMiddleware(path: string, handlers: Function | Function[]) {
     if (!Array.isArray(handlers)) handlers = [handlers];
     if (path === "/") {
@@ -46,10 +59,22 @@ export class TrieRouter {
     node.middlewares.push(...handlers);
   }
 
+  /** Same as pushMiddleware(), this is just what the Router interface expects it to be called. */
   addMiddleware(path: string, handlers: Function | Function[]): void {
     return this.pushMiddleware(path, handlers);
   }
 
+  /**
+   * Walks/builds the tree for `path` and stores the handler(s) at the
+   * end node, under `method`. `:something` segments become a shared
+   * ":" node so different param names on the same shape of path reuse
+   * the same tree branch. Won't overwrite a handler if one's already
+   * registered for that method+path.
+   *
+   * @param method - http method to register under
+   * @param path - route path, can contain `:param` segments
+   * @param handler - one handler, or an array of handlers
+   */
   insert(method: string, path: string, handler: Function | Function[]) {
     const handlers = Array.isArray(handler) ? handler : [handler];
     let node = this.root;
@@ -84,10 +109,24 @@ export class TrieRouter {
     node.handlers[method] = handlers;
   }
 
+  /** Same as insert(), this is just what the Router interface expects it to be called. */
   add(method: string, path: string, handler: Function | Function[]) {
     return this.insert(method, path, handler);
   }
 
+  /**
+   * Finds the route that matches `method` + `path`. Walks the tree
+   * segment by segment: exact segment match wins first, then a `:`
+   * param node, then falls back to a `*` wildcard node if nothing
+   * else fits. Collects middlewares along the way (global ones, plus
+   * any registered on nodes it passes through or matches). If the
+   * exact method has no handler at the matched node, falls back to
+   * checking the ALL_METHOD bucket (registered via app.all()/any()).
+   *
+   * @param method - http method of the incoming request
+   * @param path - request path
+   * @returns params found, middlewares collected, and the handler(s) if matched
+   */
   search(method: string, path: string): Find {
     let node = this.root;
 
@@ -157,6 +196,7 @@ export class TrieRouter {
     };
   }
 
+  /** Same as search(), this is just what the Router interface expects it to be called. */
   find(method: string, path: string) {
     return this.search(method, path);
   }

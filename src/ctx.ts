@@ -23,6 +23,9 @@ const _TEXT_INIT_WITH_STATUS = (status: number): ResponseInit => ({
   headers: { "Content-Type": TEXT_PLAIN_CT },
 });
 
+// One Context object gets made per request. It wraps the raw Request
+// and gives you helpers to read stuff (query, params, cookies, body)
+// and send stuff back (text, json, file, redirect, etc).
 export class Context {
   req: Request;
   server?: RuntimeServer;
@@ -39,11 +42,22 @@ export class Context {
   private contextData: Record<string, any> = EMPTY_OBJ;
   private urlObject: URL | null = null;
 
+  /**
+   * Made once per incoming request, framework does this for you, you
+   * don't need to call `new Context()` yourself.
+   *
+   * @param req - the raw request coming in
+   * @param server - runtime server instance (bun/node/etc), optional
+   * @param path - matched route path, null if nothing matched
+   * @param param - route params, like `:id` in `/user/:id`
+   * @param env - env vars / bindings (used on runtimes like cloudflare)
+   * @param executionContext - runtime specific execution context (e.g. cloudflare workers)
+   */
   constructor(
     req: Request,
     server: RuntimeServer | undefined,
     path: string | null,
-    param: Record<string, string> | undefined, 
+    param: Record<string, string> | undefined,
     env: Record<string, any> | undefined,
     executionContext: any | undefined,
   ) {
@@ -56,46 +70,64 @@ export class Context {
   }
 
   // Methods
+
+  /**
+   * Sets a header on the response. Chainable, so you can call
+   * `.setHeader().setHeader()` back to back.
+   *
+   * @param key - header name, e.g. "X-Custom"
+   * @param value - header value
+   * @returns this, so you can chain more calls
+   */
   setHeader(key: string, value: string): this {
     if (!this.headers) this.headers = new Headers();
     this.headers.set(key, value);
     return this;
   }
 
+  /**
+   * Removes a header you set earlier. Does nothing if no headers
+   * were ever set (nothing to remove from).
+   *
+   * @param key - header name to remove
+   * @returns this, so you can chain more calls
+   */
   removeHeader(key: string): this {
     if (this.headers) this.headers.delete(key);
     return this;
   }
 
+  /**
+   * Stores your own data on the context, for this request only. Useful
+   * for passing stuff between middlewares, like `ctx.set("user", user)`
+   * in an auth middleware, then reading it later in the route handler.
+   *
+   * @param key - name for the data
+   * @param value - whatever you want to store
+   * @returns this, so you can chain more calls
+   */
   set<T>(key: string, value: T): this {
     if (this.contextData === EMPTY_OBJ) this.contextData = {};
     this.contextData[key] = value;
     return this;
   }
 
+  /**
+   * Reads back data you stored earlier with `set()`. Returns undefined
+   * if nothing was ever set for that key.
+   *
+   * @param key - name you used in set()
+   * @returns the stored value, or undefined
+   */
   get<T>(key: string): T | undefined {
     if (this.contextData === EMPTY_OBJ) return undefined;
     return this.contextData[key];
   }
 
-  // Removed for now — real client IP resolution is runtime-specific
-  // (Bun's server.requestIP(), Deno's connInfo.remoteAddr, Node's
-  // req.socket.remoteAddress, Cloudflare's CF-Connecting-IP header) and
-  // guessing at it here was dishonest. Use a per-runtime adaptor helper
-  // (e.g. `diesel-core/bun`, `diesel-core/deno`) that takes ctx.req /
-  // ctx.server and returns the real IP once those adaptors exist.
-  //
-  // get ip(): string | null {
-  //   if (typeof this.server?.requestIP === "function") {
-  //     return this.server.requestIP(this.req)?.address ?? null;
-  //   }
-  //   return (
-  //     this.req.headers.get("CF-Connecting-IP") ||
-  //     this.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-  //     null
-  //   );
-  // }
-
+  /**
+   * Gives you the request url as a proper URL object. Only built the
+   * first time you access it, then reused for the rest of the request.
+   */
   get url(): URL {
     if (!this.urlObject) {
       this.urlObject = new URL(this.req.url);
@@ -103,6 +135,11 @@ export class Context {
     return this.urlObject;
   }
 
+  /**
+   * Query string params as a plain object, e.g. `?page=2` becomes
+   * `{ page: "2" }`. Parsed once and cached, empty object if there's
+   * no query string.
+   */
   get query(): Record<string, string> {
     if (!this.parsedQuery) {
       this.parsedQuery = this.url.search
@@ -112,14 +149,26 @@ export class Context {
     return this.parsedQuery;
   }
 
+  /**
+   * Route params matched from the path, e.g. route `/user/:id` hit
+   * with `/user/5` gives `{ id: "5" }`. Empty object if the route has
+   * no params.
+   */
   get params(): Record<string, string> {
     return this.#param ?? EMPTY_OBJ;
   }
 
+  /** Lets the router overwrite the params after the context is made. */
   set params(v: Record<string, string>) {
     this.#param = v;
   }
 
+  /**
+   * Parses and gives you the request body. Figures out json, form
+   * urlencoded, or multipart automatically from the Content-Type
+   * header. GET requests just get an empty object, no parsing done.
+   * Parsed once, so calling `await ctx.body` twice is fine and cheap.
+   */
   get body(): Promise<any> {
     if (this.req.method === "GET") {
       return Promise.resolve(EMPTY_OBJ);
@@ -143,6 +192,15 @@ export class Context {
     return this.parsedBody;
   }
 
+  /**
+   * Sends back a plain text response. On HEAD requests the body is
+   * dropped automatically, only headers go out.
+   *
+   * @param data - the text to send
+   * @param status - http status code, defaults to 200
+   * @param customHeaders - extra headers to add on top of Content-Type
+   * @returns the Response object
+   */
   text(
     data: string,
     status: number = 200,
@@ -168,6 +226,17 @@ export class Context {
     return new Response(data, { status, headers: this.headers });
   }
 
+  /**
+   * Sends back whatever you give it, and picks the right Content-Type
+   * on its own: bytes -> octet-stream, objects -> json, strings ->
+   * plain text, anything else gets stringified as text. Use this when
+   * you don't want to think about which response type to call.
+   *
+   * @param data - the response body, any type
+   * @param status - http status code, defaults to 200
+   * @param customHeaders - extra headers to add on top of Content-Type
+   * @returns the Response object
+   */
   send<T>(
     data: T,
     status: number = 200,
@@ -215,6 +284,15 @@ export class Context {
     return new Response(responseData, { status, headers: this.headers });
   }
 
+  /**
+   * Sends back a json response, stringifies the object for you and
+   * sets Content-Type to application/json.
+   *
+   * @param object - anything json-serializable
+   * @param status - http status code, defaults to 200
+   * @param customHeaders - extra headers to add on top of Content-Type
+   * @returns the Response object
+   */
   json<T>(
     object: T,
     status: number = 200,
@@ -258,6 +336,17 @@ export class Context {
     });
   }
 
+  /**
+   * Sends a file back as the response, streams it off disk instead of
+   * loading the whole thing into memory. Mime type gets guessed from
+   * the file extension if you don't pass one.
+   *
+   * @param filePath - path to the file on disk
+   * @param mimeType - Content-Type to use, guessed from filePath if not given
+   * @param status - http status code, defaults to 200
+   * @param customHeaders - extra headers to add on top of Content-Type
+   * @returns the Response object
+   */
   file(
     filePath: string,
     mimeType?: string,
@@ -298,6 +387,14 @@ export class Context {
     return new Response(file, { status, headers: this.headers });
   }
 
+  /**
+   * Disabled for now, was meant to render an ejs template and send it
+   * back as html. Left here so we don't lose the shape of it.
+   *
+   * @param viewPath - path to the ejs template
+   * @param data - variables to pass into the template
+   * @param status - http status code, defaults to 200
+   */
   async ejs(viewPath: string, data = {}, status: number = 200): Promise<void> {
     console.log("this method is diabled now for some time");
     // this.status = status;
@@ -313,12 +410,29 @@ export class Context {
     // }
   }
 
+  /**
+   * Redirects the client to another path, just sets the Location
+   * header and sends an empty body.
+   *
+   * @param path - where to redirect to
+   * @param status - redirect status code, defaults to 302
+   * @returns the Response object
+   */
   redirect(path: string, status: number = 302): Response {
     if (!this.headers) this.headers = new Headers();
     this.headers.set("Location", path);
     return new Response(null, { status, headers: this.headers });
   }
 
+  /**
+   * Adds a Set-Cookie header to the response. Can be called more than
+   * once to set multiple cookies, each call appends, doesn't overwrite.
+   *
+   * @param name - cookie name
+   * @param value - cookie value, gets url-encoded for you
+   * @param options - maxAge, expires, path, domain, secure, httpOnly, sameSite
+   * @returns this, so you can chain more calls
+   */
   setCookie(name: string, value: string, options: CookieOptions = {}): this {
     if (!this.headers) this.headers = new Headers();
     let cookieString = `${encodeURIComponent(name)}=${encodeURIComponent(
@@ -339,6 +453,10 @@ export class Context {
     return this;
   }
 
+  /**
+   * Cookies sent by the client, parsed from the cookie header into a
+   * plain object. Parsed once and cached, empty object if no cookies.
+   */
   get cookies(): Record<string, string> {
     if (!this.parsedCookies) {
       const cookieHeader = this.req.headers.get("cookie");
@@ -348,6 +466,15 @@ export class Context {
   }
 
   // Streams
+
+  /**
+   * Sends back a streaming response. You get a controller in the
+   * callback, push chunks into it with `controller.enqueue(...)`, it
+   * gets closed for you automatically once the callback finishes.
+   *
+   * @param callback - runs with the stream controller, push your data here
+   * @returns the Response object
+   */
   stream(
     callback: (controller: ReadableStreamDefaultController) => void,
   ): Response {
@@ -365,6 +492,12 @@ export class Context {
     return new Response(stream, { headers });
   }
 
+  /**
+   * Not implemented yet, always sends back an empty response right
+   * now. Meant to stream from an async generator eventually.
+   *
+   * @param callback - would return an async generator to stream from
+   */
   yieldStream(callback: () => AsyncIterable<any>): Response {
     return new Response();
     // {
@@ -392,6 +525,13 @@ export class Context {
 //   return cookies;
 // }
 
+/**
+ * Copies customHeaders onto an existing Headers object, used when
+ * `this.headers` already exists on the context.
+ *
+ * @param headers - the Headers object to write into
+ * @param customHeaders - key/value pairs to copy over
+ */
 function applyCustomHeaders(
   headers: Headers,
   customHeaders: Record<string, string>,
@@ -401,6 +541,13 @@ function applyCustomHeaders(
   }
 }
 
+/**
+ * Copies customHeaders into a plain object, used when `this.headers`
+ * doesn't exist yet so we don't need to bother making a Headers object.
+ *
+ * @param customHeaders - key/value pairs to copy from
+ * @param obj - the plain object to write into
+ */
 function copyHeadersToObject(
   customHeaders: Record<string, string>,
   obj: Record<string, string>,
@@ -410,6 +557,13 @@ function copyHeadersToObject(
   }
 }
 
+/**
+ * Turns a raw cookie header string like "a=1; b=2" into
+ * `{ a: "1", b: "2" }`.
+ *
+ * @param cookieHeader - the raw "cookie" header value
+ * @returns cookies as a plain object
+ */
 function parseCookie(cookieHeader: string): Record<string, string> {
   return Object.fromEntries(
     cookieHeader.split(";").map((cookie) => {
@@ -419,6 +573,15 @@ function parseCookie(cookieHeader: string): Record<string, string> {
   );
 }
 
+/**
+ * Reads and parses the request body based on the Content-Type header.
+ * Handles json, x-www-form-urlencoded and multipart/form-data. Returns
+ * `{}` if there's no content type or no body, and `{ error: ... }` if
+ * the content type isn't one we handle.
+ *
+ * @param req - the raw request to read the body from
+ * @returns the parsed body, or an object with an `error` key
+ */
 async function parseBody(req: Request): Promise<ParseBodyResult> {
   const contentType: string = req.headers.get("Content-Type") || "";
   if (!contentType) return {};
