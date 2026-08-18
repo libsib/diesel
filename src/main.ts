@@ -91,7 +91,7 @@ export default class Diesel {
    */
   constructor(options: DieselOptions = {}) {
     const {
-      router = "t2",
+      router,
       routerInstance,
       errorFormat = "json",
       prefixApiUrl = "",
