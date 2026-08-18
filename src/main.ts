@@ -83,6 +83,12 @@ export default class Diesel {
    */
   declare fetch: DieselFetchHandler;
 
+  /**
+   * Makes a new Diesel app. Everything is optional, sane defaults kick
+   * in if you don't pass anything.
+   *
+   * @param options - router choice, error format, api prefix, idle timeout, etc.
+   */
   constructor(options: DieselOptions = {}) {
     const {
       router = "t2",
@@ -138,48 +144,74 @@ export default class Diesel {
   // HTTP verb methods live on the prototype (shared across every instance)
   // instead of being re-created as per-instance closures in the
   // constructor — avoids allocating 10 closures on every `new Diesel()`.
+
+  /**
+   * Registers a GET route. Pass one or more handlers, they run in
+   * order, first one to return a response wins.
+   *
+   * @param path - route path, e.g. "/user/:id"
+   * @param handlers - one or more handler functions
+   * @returns this, so you can chain more routes
+   */
   get(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("GET", path, handlers);
     return this;
   }
+  /** Same as get(), but for POST requests. */
   post(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("POST", path, handlers);
     return this;
   }
+  /** Same as get(), but for PUT requests. */
   put(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("PUT", path, handlers);
     return this;
   }
+  /** Same as get(), but for PATCH requests. */
   patch(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("PATCH", path, handlers);
     return this;
   }
+  /** Same as get(), but for DELETE requests. */
   delete(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("DELETE", path, handlers);
     return this;
   }
+  /** Matches any http method on this path. */
   any(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("ANY", path, handlers);
     return this;
   }
+  /** Same as get(), but for HEAD requests. */
   head(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("HEAD", path, handlers);
     return this;
   }
+  /** Same as get(), but for OPTIONS requests. */
   options(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("OPTIONS", path, handlers);
     return this;
   }
+  /** Same as get(), but for PROPFIND requests (webdav stuff). */
   propfind(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("PROPFIND", path, handlers);
     return this;
   }
+  /** Same as any(), registers the route under the internal "ALL" method. */
   all(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("ALL", path, handlers);
     return this;
   }
 
-  // experimental for sub routing using single ton
+  /**
+   * Experimental. Gives you back a proxy over the single shared Diesel
+   * instance that auto-prefixes every path you register with `prefix`.
+   * Made mostly so you can do sub routing without passing the app
+   * instance around everywhere.
+   *
+   * @param prefix - path prefix to stick in front of every route
+   * @returns a proxied Diesel instance
+   */
   static router(prefix: string) {
     // this.instance.prefixApiUrl = apiPath;
     if (!this.instance) {
@@ -206,7 +238,16 @@ export default class Diesel {
     });
   }
 
-  // for redirect on a specific path
+  /**
+   * Registers a route that just redirects. Any `:param` in incomingPath
+   * gets substituted into redirectPath if it's there, and the query
+   * string gets carried over too.
+   *
+   * @param incomingPath - path to match, can have route params
+   * @param redirectPath - where to send the client, can reuse `:param` names
+   * @param statusCode - redirect status code, defaults to 302
+   * @returns this, so you can chain more routes
+   */
   redirect(incomingPath: string, redirectPath: string, statusCode?: 302): this {
     this.any(incomingPath, (ctx: Context) => {
       const params = ctx.params;
@@ -229,18 +270,40 @@ export default class Diesel {
     return this;
   }
 
+  /**
+   * Points the app at a folder to serve static files from.
+   *
+   * @param path - folder on disk to serve files from
+   * @param requestPath - url path clients should hit to get those files
+   * @returns this, so you can chain more calls
+   */
   static(path: string, requestPath?: string) {
     this.staticPath = path;
     this.staticRequestPath = requestPath;
     return this;
   }
 
+  /**
+   * Registers static html pages by name, merges with whatever was
+   * added before instead of replacing it.
+   *
+   * @param args - map of name to html content/path
+   * @returns this, so you can chain more calls
+   */
   staticHtml(args: Record<string, string>): this {
     if (!this.staticFiles) this.staticFiles = {};
     this.staticFiles = { ...this.staticFiles, ...args };
     return this;
   }
 
+  /**
+   * Registers a lifecycle hook, one of onRequest, preHandler, onSend,
+   * onError, onClose. Hooks run in the order you add them.
+   *
+   * @param typeOfHook - which hook to add to
+   * @param fnc - the function to run for that hook
+   * @returns this, so you can chain more calls
+   */
   addHooks<T extends HookType>(
     typeOfHook: T,
     fnc: NonNullable<Hooks[T]>[number],
@@ -282,6 +345,16 @@ export default class Diesel {
   // For logging incoming requests. Pass the `logger` implementation
   // (e.g. `import { logger } from "diesel-core/logger"`) so it's only
   // bundled for apps that actually use it.
+
+  /**
+   * Wires up request logging. You pass the logger implementation
+   * itself (not imported by us) so apps that don't use logging don't
+   * pay for it in bundle size.
+   *
+   * @param loggerFn - the logger implementation to use
+   * @param options - logger options, minus `app` which we fill in
+   * @returns this, so you can chain more calls
+   */
   useLogger(
     loggerFn: (options: LoggerOptions) => void,
     options?: Omit<LoggerOptions, "app">,
@@ -290,6 +363,7 @@ export default class Diesel {
     return this;
   }
 
+  /** Same idea as useLogger(), but for the advanced logger variant. */
   useAdvancedLogger(
     loggerFn: (options: AdvancedLoggerOptions) => void,
     options?: Omit<AdvancedLoggerOptions, "app">,
@@ -298,7 +372,15 @@ export default class Diesel {
     return this;
   }
 
-  // this is for high performance api endpoint.
+  /**
+   * High performance route, skips the normal handler pipeline. Use
+   * this only for endpoints where you really need the extra speed.
+   *
+   * @param method - http method, e.g. "GET"
+   * @param path - route path
+   * @param handlersOrResponse - handlers (or a direct response) for this route
+   * @returns this, so you can chain more routes
+   */
   BunRoute(method: string, path: string, ...handlersOrResponse: any[]): this {
     if (!path || typeof path !== "string")
       throw new Error("give a path in string format");
@@ -312,7 +394,13 @@ export default class Diesel {
     return this;
   }
 
-  // for cloudflare fetch
+  /**
+   * Entry point for Cloudflare Workers, use this instead of `.fetch`
+   * on that runtime since workers pass `(req, env, executionContext)`
+   * instead of `(req, server, env, executionContext)`.
+   *
+   * @returns a fetch-compatible handler for cloudflare workers
+   */
   cfFetch() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
@@ -351,6 +439,12 @@ export default class Diesel {
     };
   }
 
+  /**
+   * Sets up `this.fetch` as a self-replacing getter. First time
+   * something reads `app.fetch`, this builds the real handler and
+   * overwrites the getter with a plain function, so every request
+   * after the first read hits the handler directly, no getter cost.
+   */
   #defineFetch(): void {
     Object.defineProperty(this, "fetch", {
       configurable: true,
@@ -369,6 +463,14 @@ export default class Diesel {
   }
 
   // NORMAL WAY WITH BUN/NODE/DENO — for Cloudflare Workers use cfFetch() instead.
+
+  /**
+   * Builds the real fetch handler, picks between the new pipeline
+   * architecture and the default `#handleRequests` path depending on
+   * the `pipelineArchitecture` option passed into the constructor.
+   * Also clears tempRoutes/tempMiddlewares since they're only needed
+   * before the router is built.
+   */
   #buildFetchHandler() {
     this.tempRoutes = null;
     this.tempMiddlewares = null;
@@ -407,6 +509,18 @@ export default class Diesel {
     return this.#handleRequests.bind(this);
   }
 
+  /**
+   * The default request handler (non-pipeline mode). Finds the
+   * matching route, builds a Context for it, and runs the handlers.
+   * Falls back to matching a GET route on HEAD requests since HEAD
+   * responses reuse the GET handler's headers.
+   *
+   * @param req - the incoming request
+   * @param server - runtime server instance, optional
+   * @param env - env vars/bindings, optional
+   * @param executionContext - runtime specific execution context, optional
+   * @returns the response, or a promise of one
+   */
   #handleRequests(
     req: Request,
     server?: RuntimeServer,
@@ -434,6 +548,17 @@ export default class Diesel {
     );
   }
 
+  /**
+   * Runs the actual request lifecycle for a matched route: onRequest
+   * hook, then middlewares, then preHandler hook, then the route
+   * handler(s), then onSend hook. Whichever step returns a truthy
+   * response first wins and short-circuits the rest. Falls through to
+   * the not-found handler if nothing produced a response.
+   *
+   * @param ctx - the request context
+   * @param matchedRouteHandler - whatever the router found for this request
+   * @returns the response, or undefined if nothing matched
+   */
   async #execute_handlers(
     ctx: Context,
     matchedRouteHandler: any,
@@ -485,7 +610,17 @@ export default class Diesel {
     return await handleRouteNotFound(this as any, ctx as any, ctx.path!);
   }
 
-  // HandleError
+  /**
+   * Turns whatever got thrown during a request into a response.
+   * Checks in order: your own onError hook, then whether it's an
+   * HTTPException (has its own status/message), then falls back to a
+   * generic 500. Stack traces only get included in the response body
+   * when NODE_ENV is "development".
+   *
+   * @param err - whatever was thrown
+   * @param ctx - the request context, used for headers/path
+   * @returns an error Response
+   */
   private async handleError(err: unknown, ctx: Context) {
     const isDev = process.env.NODE_ENV === "development";
 
@@ -568,8 +703,10 @@ export default class Diesel {
    * Mount method
    * we can use 3rd party framework with diesel.js
    * for diesel , i recommend sub method
+   *
+   * @param prefix - path prefix to mount the other app/handler under
+   * @param instance - another fetch-compatible app, or a raw fetch function
    */
-
   mount(prefix: string, instance: DieselFetchHandler | any) {
     const cleanPrefix = prefix.endsWith("/*") ? prefix.slice(0, -2) : prefix;
     const prefixLength = cleanPrefix === "/" ? 0 : cleanPrefix.length;
@@ -610,7 +747,15 @@ export default class Diesel {
     this.all(cleanPrefix, handler as handlerFunction);
   }
 
-  // sub routing ( recommended )
+  /**
+   * Sub routing ( recommended ). Mounts a whole other Diesel instance
+   * under a prefix, it shares the request lifecycle (hooks, error
+   * handling) instead of running as a separate isolated app like
+   * mount() does.
+   *
+   * @param prefix - path prefix for the child app's routes
+   * @param child - another Diesel instance
+   */
   sub(prefix: string, child: Diesel) {
     const cleanPrefix = prefix.endsWith("/*") ? prefix.slice(0, -2) : prefix;
     const prefixLength = cleanPrefix === "/" ? 0 : cleanPrefix.length;
@@ -634,8 +779,15 @@ export default class Diesel {
    * Allows defining subroutes like:
    *   const userRoute = new Diesel();
    *   app.route("/api/v1/user", userRoute);
+   *
+   * Copies over the routerInstance's temp routes and middlewares onto
+   * this app's router, then nulls out routerInstance so it can't
+   * accidentally get reused (also helps it get garbage collected).
+   *
+   * @param basePath - prefix for all of routerInstance's routes
+   * @param routerInstance - the Diesel instance holding the routes to copy
+   * @returns this, so you can chain more calls
    */
-
   route(basePath: string | undefined, routerInstance: Diesel): this {
     basePath =
       basePath && basePath.length > 0
@@ -680,6 +832,16 @@ export default class Diesel {
   //   return this
   // }
 
+  /**
+   * Shared internal helper that all the HTTP verb methods (get, post,
+   * etc.) call into. Validates the inputs, keeps a temp record of the
+   * route (used later by route()/sub() for copying routes over), and
+   * adds it to the router.
+   *
+   * @param method - http method
+   * @param path - route path
+   * @param handlers - handlers for this route
+   */
   private addRoute(
     method: HttpMethod,
     path: string,
@@ -712,8 +874,11 @@ export default class Diesel {
    * Examples:
    * - app.use(h1) -> Adds a single global middleware.
    * - app.use("/home", h1) -> Adds `h1` middleware to the `/home` path.
+   *
+   * @param pathORHandler - a path string, or the first middleware function if you're going global
+   * @param handlers - more middleware functions
+   * @returns this, so you can chain more calls
    */
-
   use(
     pathORHandler?:
       | string
@@ -742,11 +907,27 @@ export default class Diesel {
     return this;
   }
 
+  /**
+   * Sets a custom handler for when no route matches, instead of the
+   * default 404.
+   *
+   * @param handler - runs on unmatched requests
+   * @returns this, so you can chain more calls
+   */
   routeNotFound(handler: RouteNotFoundHandler) {
     this.routeNotFoundFunc = handler;
     return this;
   }
 
+  /**
+   * Registers the same handlers for multiple http methods at once,
+   * instead of calling `.get()`, `.post()`, etc separately.
+   *
+   * @param methods - one method, or an array of methods
+   * @param path - route path
+   * @param handlers - handlers to run for all of these methods
+   * @returns this, so you can chain more calls
+   */
   onMethod(
     methods: string | (HttpMethod | string)[],
     path: string,
@@ -767,12 +948,27 @@ export default class Diesel {
     return this;
   }
 
+  /**
+   * Listens for a custom event on the app, just a thin wrapper over
+   * node's EventEmitter, made lazily on first use.
+   *
+   * @param event - event name
+   * @param listener - runs when the event fires
+   * @returns this, so you can chain more calls
+   */
   on(event: string | symbol, listener: (...args: any[]) => void) {
     if (!this.emitter) this.emitter = new EventEmitter();
     this.emitter.on(event, listener);
     return this;
   }
 
+  /**
+   * Fires a custom event on the app.
+   *
+   * @param event - event name
+   * @param args - passed through to the listeners
+   * @returns this, so you can chain more calls
+   */
   emit(event: string | symbol, ...args: any) {
     if (!this.emitter) this.emitter = new EventEmitter();
     this.emitter.emit(event, ...args);
