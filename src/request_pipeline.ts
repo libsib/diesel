@@ -5,6 +5,16 @@ import { EMPTY_OBJ } from "./constant";
 import { handleRouteNotFound, runHooks } from "./utils/request.util";
 import { isPromise } from "./utils/promise";
 
+// This whole file is codegen. Instead of running the request through
+// a chain of function calls (hook -> middleware -> handler -> hook),
+// we build up the equivalent code as a plain string and compile it
+// once with `new Function(...)` into a single flat function. Less
+// function-call overhead per request, at the cost of the code here
+// being string templates instead of normal code.
+
+// Currently unused, was meant to pull a handler's function body out as
+// text so it could be inlined directly into the generated pipeline
+// instead of calling the handler as a function. Kept around for later.
 function extractBody(fn: Function) {
   const src = fn.toString().trim();
 
@@ -19,8 +29,12 @@ function extractBody(fn: Function) {
   return src.slice(start, end).trim();
 }
 
+// tells if a function was declared `async`, used to decide whether the generated code needs an `await`
 const isAsync = (func: Function) => func.constructor.name === "AsyncFunction";
 
+// generates the "stop here and return the result" line for a hook's
+// codegen. onRequest hooks don't get this check, their return value
+// is never treated as a response here.
 const hook_final_res = (hook_type: string, res_var: string): string => {
   if (hook_type === "onRequest") {
     return "";
@@ -28,6 +42,15 @@ const hook_final_res = (hook_type: string, res_var: string): string => {
   return `if (${res_var}) return ${res_var};`;
 };
 
+// appends the code that runs a set of hooks (onRequest/preHandler/onSend)
+// into the pipeline. Small hook lists get unrolled inline (one line per
+// hook, faster), bigger ones get a for-loop instead so the generated
+// function doesn't get huge.
+//
+// @param pipeline - array of code strings being built up, this pushes onto it
+// @param hooks - the hook functions to generate calls for
+// @param hooksType - which hook this is, e.g. "onRequest"
+// @param args - code snippets to pass as arguments to each hook call, e.g. "ctx"
 const pushHooks = (
   pipeline: string[],
   hooks: HookFunction[],
@@ -56,6 +79,8 @@ const pushHooks = (
   }
 };
 
+// same idea as pushHooks() above, but for global middlewares: inlines
+// each one if there's 5 or fewer, otherwise generates a loop.
 const pushMiddlewares = (
   pipeline: string[],
   globalMiddlewares: middlewareFunc[],
@@ -87,6 +112,19 @@ const pushMiddlewares = (
   }
 };
 
+/**
+ * Builds the handler function for a single `app.BunRoute(...)` route.
+ * Generates a standalone function specific to this one route (method
+ * check, onRequest hooks, then either a static response or the given
+ * handler(s)), then compiles it with `new Function`. This is the code
+ * behind Diesel's high-performance route registration.
+ *
+ * @param diesel - the app instance, used to read hooks
+ * @param method - http method this route responds to
+ * @param path - route path, only used for logging/onRequest args here
+ * @param handlersOrResponse - either a static response (string/object) to always return, or handler function(s)
+ * @returns a compiled `(req, server) => ...` function for this route
+ */
 export const BunRequestPipline = (
   diesel: Diesel,
   method: string,
@@ -215,6 +253,17 @@ export const BunRequestPipline = (
   return fnc;
 };
 
+/**
+ * Builds the whole request-handling function used when
+ * `pipelineArchitecture: true` is passed to `new Diesel()`. Same
+ * lifecycle as `#execute_handlers` in main.ts (onRequest hook,
+ * middlewares, preHandler hook, route handler(s), onSend hook, then
+ * not-found fallback), just generated once as a single flat function
+ * instead of main.ts's normal step-by-step method.
+ *
+ * @param diesel - the app instance, used to read hooks and which lifecycle steps are even wired up
+ * @returns a compiled `(diesel, ctx, matchedRouteHandler) => Promise<Response>` function
+ */
 export const build_request_pipeline_latest = (diesel: Diesel): Function => {
   const pipeline: any = [];
 

@@ -701,8 +701,7 @@ export default class Diesel {
 
   /**
    * Mount method
-   * we can use 3rd party framework with diesel.js
-   * for diesel , i recommend sub method
+   * we can use 3rd party framework which exposes fetch method
    *
    * @param prefix - path prefix to mount the other app/handler under
    * @param instance - another fetch-compatible app, or a raw fetch function
@@ -750,8 +749,7 @@ export default class Diesel {
   /**
    * Sub routing ( recommended ). Mounts a whole other Diesel instance
    * under a prefix, it shares the request lifecycle (hooks, error
-   * handling) instead of running as a separate isolated app like
-   * mount() does.
+   * handling)
    *
    * @param prefix - path prefix for the child app's routes
    * @param child - another Diesel instance
