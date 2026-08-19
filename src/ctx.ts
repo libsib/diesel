@@ -206,7 +206,6 @@ export class Context {
     status: number = 200,
     customHeaders?: Record<string, string>,
   ): Response {
-    data = this.req.method === "HEAD" ? null as any : data;
     if (!this.headers) {
       if (!customHeaders) {
         return new Response(data, status === 200 ? _TEXT_INIT : _TEXT_INIT_WITH_STATUS(status));
@@ -258,7 +257,6 @@ export class Context {
       contentType = "text/plain; charset=utf-8";
       responseData = String(data);
     }
-    if (this.req.method === "HEAD") responseData = null;
     if (!this.headers) {
       if (!customHeaders) {
         return new Response(responseData, {
@@ -298,16 +296,9 @@ export class Context {
     status: number = 200,
     customHeaders?: Record<string, string>,
   ): Response {
-    const isHead = this.req.method === "HEAD";
 
     if (!this.headers) {
       if (!customHeaders) {
-        if (isHead) {
-          return new Response(null, {
-            status,
-            headers: { "Content-Type": "application/json; charset=utf-8" },
-          });
-        }
         // Response.json() sets Content-Type automatically; skip options entirely when status=200
         return status === 200
           ? Response.json(object)
@@ -318,9 +309,7 @@ export class Context {
         "Content-Type": "application/json; charset=utf-8",
       };
       copyHeadersToObject(customHeaders, h);
-      return isHead
-        ? new Response(null, { status, headers: h })
-        : Response.json(object, { status, headers: h });
+      return Response.json(object, { status, headers: h });
     }
 
     // slow path
@@ -330,7 +319,7 @@ export class Context {
       this.headers.set("Content-Type", "application/json; charset=utf-8");
     }
 
-    return new Response(isHead ? null : JSON.stringify(object), {
+    return new Response(JSON.stringify(object), {
       status,
       headers: this.headers,
     });
