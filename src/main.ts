@@ -6,7 +6,6 @@ import {
   errorFormat,
   HookFunction,
   HookType,
-  listenArgsT,
   middlewareFunc,
   onError,
   onRequest,
@@ -83,6 +82,10 @@ export default class Diesel {
    */
   declare fetch: DieselFetchHandler;
 
+
+  global_middlewares: Function[] | undefined
+  is_global_middleware: boolean = false;
+  
   /**
    * Makes a new Diesel app. Everything is optional, sane defaults kick
    * in if you don't pass anything.
@@ -180,11 +183,6 @@ export default class Diesel {
   /** Matches any http method on this path. */
   any(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("ANY", path, handlers);
-    return this;
-  }
-  /** Same as get(), but for HEAD requests. */
-  head(path: string, ...handlers: handlerFunction[]): this {
-    this.addRoute("HEAD", path, handlers);
     return this;
   }
   /** Same as get(), but for OPTIONS requests. */
@@ -413,11 +411,10 @@ export default class Diesel {
         executionContext: any,
       ) => {
         const path = getPath(req.url);
-        let matchedRouteHandler = this.router.find(
-          req.method as HttpMethod,
+        const matchedRouteHandler = this.router.find(
+          (req.method === "HEAD" ? "GET" : req.method) as HttpMethod,
           path,
         );
-        if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           undefined,
@@ -484,11 +481,10 @@ export default class Diesel {
         executionContext?: any,
       ) => {
         const path = getPath(req.url);
-        let matchedRouteHandler = this.router.find(
-          req.method as HttpMethod,
+        const matchedRouteHandler = this.router.find(
+          (req.method === "HEAD" ? "GET" : req.method) as HttpMethod,
           path,
         );
-        if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           server,
@@ -512,7 +508,6 @@ export default class Diesel {
   /**
    * The default request handler (non-pipeline mode). Finds the
    * matching route, builds a Context for it, and runs the handlers.
-   * Falls back to matching a GET route on HEAD requests since HEAD
    * responses reuse the GET handler's headers.
    *
    * @param req - the incoming request
@@ -528,12 +523,10 @@ export default class Diesel {
     executionContext?: any,
   ): Response | Promise<Response | undefined> {
     const path = getPath(req.url);
-
-    let matchedRouteHandler = this.router.find(
-      req.method as HttpMethod,
+    const matchedRouteHandler = this.router.find(
+      (req.method === "HEAD" ? "GET" : req.method) as HttpMethod,
       path,
     );
-    if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
 
     const ctx = new Context(
       req,
@@ -565,6 +558,16 @@ export default class Diesel {
   ): Promise<Response | undefined> {
     if (this.hasOnReqHook)
       await runHooks("onRequest", this.hooks.onRequest, [ctx]);
+
+    // Global middleware, kept on the instance instead of the router - see use().
+    if (this.is_global_middleware) {
+      const globalMiddlewares = this.global_middlewares!;
+      for (let i = 0; i < globalMiddlewares.length; i++) {
+        let res = globalMiddlewares[i]!(ctx);
+        res = isPromise(res) ? await res : res;
+        if (res) return res;
+      }
+    }
 
     // Middleware exec
     if (matchedRouteHandler.middlewares?.length) {
@@ -818,19 +821,6 @@ export default class Diesel {
   }
 
   /**
-   same as Route
-   */
-  // #register(
-  //   module: (app: Diesel) => void
-  // ): this {
-  //   const newAPP = new Diesel()
-  //   const wrapper = () => {
-
-  //   }
-  //   return this
-  // }
-
-  /**
    * Shared internal helper that all the HTTP verb methods (get, post,
    * etc.) call into. Validates the inputs, keeps a temp record of the
    * route (used later by route()/sub() for copying routes over), and
@@ -899,7 +889,11 @@ export default class Diesel {
       if (!this.tempMiddlewares.has("/")) this.tempMiddlewares.set("/", []);
       this.tempMiddlewares.get("/")!.push(...handlers);
 
-      this.router.addMiddleware("/", arrs);
+      // Global (no-path) middleware bypasses the router entirely - kept
+      // on the instance instead so the hot path doesn't pay for a
+      // per-request merge/copy of it inside the router's find().
+      (this.global_middlewares ??= []).push(...arrs);
+      this.is_global_middleware = true;
     }
 
     return this;

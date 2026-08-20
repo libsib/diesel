@@ -51,7 +51,7 @@ export class RouterFactory {
             case 'trie':
                 return new TrieRouter()
             case 'peepal':
-                return new PeepalRouter()
+                return new PeepalRouter();
             default: return new PeepalRouter()
         }
     }

@@ -21,7 +21,8 @@ class TrieNodes {
 // regex. Faster for apps with a lot of routes.
 export class TrieRouter {
   root: TrieNodes;
-  globalMiddlewares: Function[]; // middlewares added on "/", run for every request
+  globalMiddlewares: Function[];
+  is_gm: boolean = false;
   constructor() {
     this.root = new TrieNodes();
     this.globalMiddlewares = [];
@@ -39,6 +40,7 @@ export class TrieRouter {
     if (!Array.isArray(handlers)) handlers = [handlers];
     if (path === "/") {
       this.globalMiddlewares.push(...handlers);
+      this.is_gm = true;
       return;
     }
 
@@ -196,9 +198,82 @@ export class TrieRouter {
     };
   }
 
+  match(method: string, path: string): Find {
+    let node = this.root;
+
+    const pathSegments = path.split("/");
+
+    let collected_middlewares: Function[] = this.is_gm
+      ? this.globalMiddlewares.slice()
+      : [];
+    
+    let paramObject: Record<string, string> | undefined;
+
+    for (let i = 0; i < pathSegments.length; i++) {
+      const element = pathSegments[i];
+      if (element.length === 0) {
+        continue;
+      }
+      const wildcardChild = node.children["*"];
+      if (node.children[element]) {
+        if (wildcardChild) {
+          const mw = wildcardChild.middlewares;
+          for (let j = 0; j < mw.length; j++) collected_middlewares.push(mw[j]);
+        }
+        node = node.children[element]!;
+      } else if (node.children[":"]) {
+        if (wildcardChild) {
+          const mw = wildcardChild.middlewares;
+          for (let j = 0; j < mw.length; j++) collected_middlewares.push(mw[j]);
+        }
+        node = node.children[":"];
+        if (!paramObject) paramObject = {};
+        paramObject[node.params[method]] = element;
+      } else if (wildcardChild) {
+        node = wildcardChild;
+        break;
+      } else {
+        return {
+          params: paramObject,
+          middlewares: collected_middlewares,
+          handler: undefined,
+        };
+      }
+    }
+    if (node.middlewares.length > 0) {
+      const mw = node.middlewares;
+      for (let j = 0; j < mw.length; j++) {
+        collected_middlewares.push(mw[j]);
+      }
+    }
+
+    // if the handler is found with correct method
+    if (node.handlers[method]) {
+      return {
+        params: paramObject,
+        middlewares: collected_middlewares,
+        handler: node.handlers[method],
+      };
+    }
+    // else check for ALL method
+    if (node.handlers[ALL_METHOD]) {
+      return {
+        params: paramObject,
+        middlewares: collected_middlewares,
+        handler: node.handlers[ALL_METHOD],
+      };
+    }
+    return {
+      params: paramObject,
+      middlewares: collected_middlewares,
+      handler: undefined,
+    };
+  }
+
+  
   /** Same as search(), this is just what the Router interface expects it to be called. */
   find(method: string, path: string) {
-    return this.search(method, path);
+    return this.match(method, path);
   }
 }
 
