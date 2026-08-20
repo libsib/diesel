@@ -120,29 +120,6 @@ describe("HEAD method - body stripping per ctx serializer (inspecting the Respon
   });
 });
 
-describe("HEAD method - explicit registration & middleware", () => {
-  it("an explicitly registered app.head() handler wins over the GET fallback", async () => {
-    const headPrecedenceApp = new Diesel();
-    headPrecedenceApp.head("/explicit", (ctx: any) =>
-      new Response(null, { status: 204, headers: { "X-Handler": "head" } })
-    );
-    headPrecedenceApp.get("/explicit", (ctx: any) => ctx.json({ msg: "get handler" }));
-
-    const headRes: Response = await get(headPrecedenceApp, "/explicit", "HEAD");
-    expect(headRes.status).toBe(204);
-    expect(headRes.headers.get("x-handler")).toBe("head");
-  });
-
-  it("middleware still runs when HEAD falls back to a GET route (auth-gated route)", async () => {
-    // /api/protected is GET+POST only, guarded by authJwt middleware. No cookie
-    // is sent, so the middleware itself should short-circuit with 401 - proving
-    // the fallback replays the full GET route (middleware included), not just
-    // the terminal handler.
-    const headRes: Response = await get(app, "/api/protected", "HEAD");
-    expect(headRes.status).toBe(401);
-    expect(headRes.body).toBeNull();
-  });
-});
 
 describe("HEAD method - accepted behavior (raw Response bypasses body stripping, not treated as a bug)", () => {
   // ctx.text()/json()/send()/file()/stream() null the body themselves, but

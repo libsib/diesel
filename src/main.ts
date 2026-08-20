@@ -6,7 +6,6 @@ import {
   errorFormat,
   HookFunction,
   HookType,
-  listenArgsT,
   middlewareFunc,
   onError,
   onRequest,
@@ -180,11 +179,6 @@ export default class Diesel {
   /** Matches any http method on this path. */
   any(path: string, ...handlers: handlerFunction[]): this {
     this.addRoute("ANY", path, handlers);
-    return this;
-  }
-  /** Same as get(), but for HEAD requests. */
-  head(path: string, ...handlers: handlerFunction[]): this {
-    this.addRoute("HEAD", path, handlers);
     return this;
   }
   /** Same as get(), but for OPTIONS requests. */
@@ -413,11 +407,10 @@ export default class Diesel {
         executionContext: any,
       ) => {
         const path = getPath(req.url);
-        let matchedRouteHandler = this.router.find(
-          req.method as HttpMethod,
+        const matchedRouteHandler = this.router.find(
+          (req.method === "HEAD" ? "GET" : req.method) as HttpMethod,
           path,
         );
-        if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           undefined,
@@ -484,11 +477,10 @@ export default class Diesel {
         executionContext?: any,
       ) => {
         const path = getPath(req.url);
-        let matchedRouteHandler = this.router.find(
-          req.method as HttpMethod,
+        const matchedRouteHandler = this.router.find(
+          (req.method === "HEAD" ? "GET" : req.method) as HttpMethod,
           path,
         );
-        if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
         const ctx = new Context(
           req,
           server,
@@ -512,7 +504,6 @@ export default class Diesel {
   /**
    * The default request handler (non-pipeline mode). Finds the
    * matching route, builds a Context for it, and runs the handlers.
-   * Falls back to matching a GET route on HEAD requests since HEAD
    * responses reuse the GET handler's headers.
    *
    * @param req - the incoming request
@@ -528,12 +519,10 @@ export default class Diesel {
     executionContext?: any,
   ): Response | Promise<Response | undefined> {
     const path = getPath(req.url);
-
-    let matchedRouteHandler = this.router.find(
-      req.method as HttpMethod,
+    const matchedRouteHandler = this.router.find(
+      (req.method === "HEAD" ? "GET" : req.method) as HttpMethod,
       path,
     );
-    if (matchedRouteHandler.handler === undefined && req.method === "HEAD") matchedRouteHandler = this.router.find("GET", path);
 
     const ctx = new Context(
       req,
