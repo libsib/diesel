@@ -278,6 +278,16 @@ export const build_request_pipeline_latest = (diesel: Diesel): Function => {
     pushHooks(pipeline, onReqHooks, "onRequest", "ctx");
   }
 
+  // Global middleware, baked in once at build time - see Diesel.use().
+  // Referenced as a bare `globalMiddlewares` closure var (not diesel.*)
+  // so each call is a direct array index, not a property lookup.
+  const globalMiddlewares = diesel.is_global_middleware
+    ? (diesel.global_middlewares as middlewareFunc[])
+    : [];
+  if (globalMiddlewares.length) {
+    pushMiddlewares(pipeline, globalMiddlewares);
+  }
+
   // midl exec
   const m = `if (matchedRouteHandler.middlewares?.length) {
     for (const mw of matchedRouteHandler.middlewares) {
@@ -336,7 +346,8 @@ export const build_request_pipeline_latest = (diesel: Diesel): Function => {
     "handleRouteNotFound",
     "Context",
     "isPromise",
+    "globalMiddlewares",
     body,
   );
-  return fnc(diesel, handleRouteNotFound, Context, isPromise);
+  return fnc(diesel, handleRouteNotFound, Context, isPromise, globalMiddlewares);
 };

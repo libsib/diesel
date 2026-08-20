@@ -82,6 +82,10 @@ export default class Diesel {
    */
   declare fetch: DieselFetchHandler;
 
+
+  global_middlewares: Function[] | undefined
+  is_global_middleware: boolean = false;
+  
   /**
    * Makes a new Diesel app. Everything is optional, sane defaults kick
    * in if you don't pass anything.
@@ -555,6 +559,16 @@ export default class Diesel {
     if (this.hasOnReqHook)
       await runHooks("onRequest", this.hooks.onRequest, [ctx]);
 
+    // Global middleware, kept on the instance instead of the router - see use().
+    if (this.is_global_middleware) {
+      const globalMiddlewares = this.global_middlewares!;
+      for (let i = 0; i < globalMiddlewares.length; i++) {
+        let res = globalMiddlewares[i]!(ctx);
+        res = isPromise(res) ? await res : res;
+        if (res) return res;
+      }
+    }
+
     // Middleware exec
     if (matchedRouteHandler.middlewares?.length) {
       for (const mw of matchedRouteHandler.middlewares) {
@@ -807,19 +821,6 @@ export default class Diesel {
   }
 
   /**
-   same as Route
-   */
-  // #register(
-  //   module: (app: Diesel) => void
-  // ): this {
-  //   const newAPP = new Diesel()
-  //   const wrapper = () => {
-
-  //   }
-  //   return this
-  // }
-
-  /**
    * Shared internal helper that all the HTTP verb methods (get, post,
    * etc.) call into. Validates the inputs, keeps a temp record of the
    * route (used later by route()/sub() for copying routes over), and
@@ -888,7 +889,11 @@ export default class Diesel {
       if (!this.tempMiddlewares.has("/")) this.tempMiddlewares.set("/", []);
       this.tempMiddlewares.get("/")!.push(...handlers);
 
-      this.router.addMiddleware("/", arrs);
+      // Global (no-path) middleware bypasses the router entirely - kept
+      // on the instance instead so the hot path doesn't pay for a
+      // per-request merge/copy of it inside the router's find().
+      (this.global_middlewares ??= []).push(...arrs);
+      this.is_global_middleware = true;
     }
 
     return this;
