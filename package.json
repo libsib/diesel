@@ -125,6 +125,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "peepal-router": "^0.5.1"
+    "peepal-router": "^0.5.2"
   }
 }
