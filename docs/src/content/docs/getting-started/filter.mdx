@@ -97,7 +97,7 @@ app.use(filter({
 
 ### Breakdown of `filter()` Options
 
-* `publicRoutes: string[]`: Specifies which routes should be public (unauthenticated). Matched by path prefix.
+* `publicRoutes: string[]`: Specifies which routes should be public (unauthenticated). Matched by path segment: `"/api"` covers `/api` and `/api/users`, but not `/api-admin`. `"/"` only makes the root path public.
 
 ```typescript
 filter({ publicRoutes: ["/api/user/register", "/api/user/login"] })
