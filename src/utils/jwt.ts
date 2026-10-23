@@ -1,20 +1,24 @@
 import { ContextType } from "../types";
 
+// secret is a string, so only allow the HMAC algorithms (no "none", no
+// public-key algs); all three kept so HS384/HS512 tokens still verify
+const VERIFY_OPTIONS = { algorithms: ["HS256", "HS384", "HS512"] };
+
 function authenticateJwtMiddleware(jwt: any, user_jwt_secret: string) {
   if (!jwt) {
     throw new Error("JWT library is not defined, please provide jwt to authenticateJwt Function");
   }
   return (ctx: ContextType) => {
     try {
-      let token = ctx.cookies?.accessToken ?? ctx.req?.headers?.get("Authorization");
+      let token = ctx.cookies?.accessToken || ctx.req?.headers?.get("Authorization");
       if (!token) {
         return ctx.json({ message: "Unauthorized", error: "No token provided" }, 401);
       }
 
-      if (token.startsWith("Bearer ")) {
+      if (/^bearer /i.test(token)) {
         token = token.slice(7);
       }
-      const decoded = jwt?.verify(token, user_jwt_secret);
+      const decoded = jwt?.verify(token, user_jwt_secret, VERIFY_OPTIONS);
       if (!decoded) {
         return ctx.json({ message: "Unauthorized", error: "Token could not be decoded" }, 401);
       }
@@ -43,18 +47,18 @@ function authenticateJwtDbMiddleware(jwt: any, User: any, user_jwt_secret: strin
   }
   return async (ctx: ContextType) => {
     try {
-      let token = ctx.cookies?.accessToken ?? ctx.req?.headers?.get("Authorization");
+      let token = ctx.cookies?.accessToken || ctx.req?.headers?.get("Authorization");
 
       if (!token) {
         return ctx.json({ message: "Unauthorized", error: "No token provided" }, 401);
       }
 
 
-      if (token.startsWith("Bearer ")) {
+      if (/^bearer /i.test(token)) {
         token = token.slice(7);
       }
 
-      const decodedToken = jwt?.verify(token, user_jwt_secret);
+      const decodedToken = jwt?.verify(token, user_jwt_secret, VERIFY_OPTIONS);
 
       if (!decodedToken) {
         return ctx.json({ message: "Unauthorized", error: "Token could not be decoded" }, 401);
@@ -63,7 +67,7 @@ function authenticateJwtDbMiddleware(jwt: any, User: any, user_jwt_secret: strin
       const user = await User.findById(decodedToken._id).select("-password -refreshToken");
 
       if (!user) {
-        return ctx.json({ message: "Unauthorized: User not found" }, 404);
+        return ctx.json({ message: "Unauthorized: User not found" }, 401);
       }
 
       ctx.set("user", user);
