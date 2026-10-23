@@ -1,4 +1,4 @@
-import { middlewareFunc } from "../../types";
+import { ContextType, middlewareFunc } from "../../types";
 
 export interface CorsOptions {
     origin?: string | string[];
@@ -12,6 +12,16 @@ export interface CorsOptions {
 const defaultMethods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"];
 const defaultHeaders = ["Content-Type", "Authorization"];
 
+// Append "Origin" to Vary without clobbering anything already there
+const varyOrigin = (ctx: ContextType) => {
+    const vary = ctx.headers?.get("Vary");
+    if (!vary) {
+        ctx.setHeader("Vary", "Origin");
+    } else if (vary.trim() !== "*" && !vary.split(",").some((v: string) => v.trim().toLowerCase() === "origin")) {
+        ctx.setHeader("Vary", `${vary}, Origin`);
+    }
+};
+
 export const cors = (config: CorsOptions): middlewareFunc => {
     return async function (ctx): Promise<Response | null | any> {
         const origin = ctx.req.headers.get("origin") ?? "*";
@@ -24,25 +34,33 @@ export const cors = (config: CorsOptions): middlewareFunc => {
 
         ctx.setHeader("Access-Control-Allow-Methods", allowedMethods.join(","));
         ctx.setHeader("Access-Control-Allow-Headers", allowedHeaders.join(","));
-        ctx.setHeader("Access-Control-Allow-Credentials", allowedCredentials.toString());
 
         if (exposedHeaders.length > 0) {
             ctx.setHeader("Access-Control-Expose-Headers", exposedHeaders.join(","));
         }
 
-        if (allowedOrigins === "*" || origin === "*") {
-            ctx.setHeader("Access-Control-Allow-Origin", "*");
+        // Response depends on the request Origin unless it's a plain `*` without credentials
+        if (allowedOrigins !== "*" || allowedCredentials) {
+            varyOrigin(ctx);
+        }
+
+        let allowOrigin: string;
+        if (origin === "*") {
+            allowOrigin = "*";
+        } else if (allowedOrigins === "*") {
+            // `*` with credentials is invalid per spec, reflect the request origin instead
+            allowOrigin = allowedCredentials ? origin : "*";
         } else if (Array.isArray(allowedOrigins)) {
-            if (origin && allowedOrigins.includes(origin)) {
-                ctx.setHeader("Access-Control-Allow-Origin", origin);
+            if (allowedOrigins.includes(origin)) {
+                allowOrigin = origin;
             } else if (allowedOrigins.includes("*")) {
-                ctx.setHeader("Access-Control-Allow-Origin", "*");
+                allowOrigin = allowedCredentials ? origin : "*";
             } else {
                 return ctx.json({ message: "CORS not allowed" }, 403);
             }
         } else if (typeof allowedOrigins === "string") {
             if (origin === allowedOrigins) {
-                ctx.setHeader("Access-Control-Allow-Origin", origin);
+                allowOrigin = origin;
             } else {
                 return ctx.json({ message: "CORS not allowed" }, 403);
             }
@@ -50,7 +68,15 @@ export const cors = (config: CorsOptions): middlewareFunc => {
             return ctx.json({ message: "CORS not allowed" }, 403);
         }
 
-        if (ctx.req.method === "OPTIONS") {
+        ctx.setHeader("Access-Control-Allow-Origin", allowOrigin);
+
+        // Spec only defines `true`; never pair it with `*`
+        if (allowedCredentials && allowOrigin !== "*") {
+            ctx.setHeader("Access-Control-Allow-Credentials", "true");
+        }
+
+        // Only a real preflight carries Access-Control-Request-Method
+        if (ctx.req.method === "OPTIONS" && ctx.req.headers.has("access-control-request-method")) {
             if (maxAge) {
                 ctx.setHeader("Access-Control-Max-Age", maxAge.toString());
             }
