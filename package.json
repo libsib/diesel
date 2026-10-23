@@ -1,6 +1,6 @@
 {
   "name": "diesel-core",
-  "version": "3.5.4",
+  "version": "3.5.5",
   "description": "Fast, minimal library for building backend APIs on Web Standards",
   "main": "index.js",
   "types": "index.d.ts",
@@ -119,7 +119,9 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/deno": "^2.7.0",
-    "@types/ejs": "^3.1.5"
+    "@types/ejs": "^3.1.5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "jsonwebtoken": "^9.0.3"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
