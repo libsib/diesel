@@ -89,3 +89,75 @@ runScenarios(
     return (req) => handler(req, {}, undefined);
   },
 );
+
+// Error responses must only carry response headers - never the client's
+// request headers (Cookie, Authorization, ...) - and a Content-Type that
+// matches the error format.
+describe("handleError — does not echo request headers", () => {
+  const requestHeaders = {
+    Cookie: "session=secret",
+    Authorization: "Bearer tok",
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+
+  for (const pipelineArchitecture of [false, true]) {
+    const label = pipelineArchitecture ? "pipeline" : "default";
+
+    it(`${label}: plain throw, json format`, async () => {
+      const app = new Diesel({ pipelineArchitecture });
+      app.post("/err", () => {
+        throw new Error("boom");
+      });
+      const res = await app.fetch(
+        new Request("http://localhost/err", {
+          method: "POST",
+          headers: requestHeaders,
+          body: "a=1",
+        }),
+      );
+      expect(res.status).toBe(500);
+      expect(res.headers.get("cookie")).toBeNull();
+      expect(res.headers.get("authorization")).toBeNull();
+      expect(res.headers.get("content-type")).toContain("application/json");
+    });
+
+    it(`${label}: HTTPException, json format`, async () => {
+      const app = new Diesel({ pipelineArchitecture });
+      app.get("/he", () => {
+        throw new HTTPException(403, { message: "nope" });
+      });
+      const res = await app.fetch(
+        new Request("http://localhost/he", { headers: requestHeaders }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.headers.get("cookie")).toBeNull();
+      expect(res.headers.get("authorization")).toBeNull();
+      expect(res.headers.get("content-type")).toContain("application/json");
+    });
+
+    it(`${label}: text format gets text/plain`, async () => {
+      const app = new Diesel({ pipelineArchitecture, errorFormat: "text" });
+      app.get("/err", () => {
+        throw new Error("boom");
+      });
+      const res = await app.fetch(
+        new Request("http://localhost/err", { headers: requestHeaders }),
+      );
+      expect(res.status).toBe(500);
+      expect(res.headers.get("cookie")).toBeNull();
+      expect(res.headers.get("content-type")).toContain("text/plain");
+    });
+
+    it(`${label}: Content-Type set by the handler is replaced`, async () => {
+      const app = new Diesel({ pipelineArchitecture });
+      app.get("/err", (ctx: Context) => {
+        ctx.setHeader("Content-Type", "text/html");
+        ctx.setHeader("x-custom", "kept");
+        throw new Error("boom");
+      });
+      const res = await app.fetch(new Request("http://localhost/err"));
+      expect(res.headers.get("content-type")).toContain("application/json");
+      expect(res.headers.get("x-custom")).toBe("kept");
+    });
+  }
+});

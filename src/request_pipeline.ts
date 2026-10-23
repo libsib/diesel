@@ -320,20 +320,27 @@ export const build_request_pipeline_latest = (diesel: Diesel): Function => {
   }`;
   pipeline.push(handler);
 
-  // onSend
+  // onSend runs on the final response, so resolve the not-found/static
+  // fallback first.
   if (diesel.hasOnSendHook) {
+    pipeline.push(`
+      if (!finalResult) finalResult = await handleRouteNotFound(diesel, ctx, ctx.path);
+    `);
     pushHooks(pipeline, OnSendHook, "onSend", "ctx", "finalResult");
-  }
-
-  // Final response
-  pipeline.push(`
+    pipeline.push(`
+      return finalResult;
+    `);
+  } else {
+    // Final response
+    pipeline.push(`
       if (finalResult) return finalResult;
     `);
 
-  // Route not found check
-  pipeline.push(`
+    // Route not found check
+    pipeline.push(`
     return await handleRouteNotFound(diesel, ctx, ctx.path);
   `);
+  }
 
   const body = `
       return async function execute_handlers(diesel, ctx, matchedRouteHandler){

@@ -119,3 +119,60 @@ describe("route — subrouting", () => {
     expect(await res.text()).toBe("routed response");
   });
 });
+
+describe("route — child global middleware", () => {
+  for (const router of ["peepal", "trie"]) {
+    it(`${router}: child use(mw1, mw2) runs for every child route`, async () => {
+      const calls: string[] = [];
+      const child = new Diesel({ router });
+      child.use(
+        () => {
+          calls.push("mw1");
+        },
+        () => {
+          calls.push("mw2");
+        },
+      );
+      child.get("/", (ctx: Context) => ctx.text("root"));
+      child.get("/x", (ctx: Context) => ctx.text("x"));
+      child.post("/x", (ctx: Context) => ctx.text("x"));
+      child.get("/u/:id", (ctx: Context) => ctx.text(ctx.params.id));
+
+      const parent = new Diesel({ router });
+      parent.get("/other", (ctx: Context) => ctx.text("other"));
+      parent.route("/api", child);
+
+      for (const [method, path] of [
+        ["GET", "/api"],
+        ["GET", "/api/x"],
+        ["POST", "/api/x"],
+        ["GET", "/api/u/7"],
+      ]) {
+        calls.length = 0;
+        const res = await parent.fetch(
+          new Request(`http://localhost${path}`, { method }),
+        );
+        expect(res.status).toBe(200);
+        // exactly once each, even with GET and POST on the same path
+        expect(calls).toEqual(["mw1", "mw2"]);
+      }
+
+      // parent's own routes are not affected
+      calls.length = 0;
+      await parent.fetch(new Request("http://localhost/other"));
+      expect(calls).toEqual([]);
+    });
+
+    it(`${router}: a blocking child middleware protects child routes`, async () => {
+      const child = new Diesel({ router });
+      child.use((ctx: Context) => ctx.text("denied", 401));
+      child.get("/secret", (ctx: Context) => ctx.text("secret"));
+
+      const parent = new Diesel({ router });
+      parent.route("/api", child);
+
+      const res = await parent.fetch(new Request("http://localhost/api/secret"));
+      expect(res.status).toBe(401);
+    });
+  }
+});
