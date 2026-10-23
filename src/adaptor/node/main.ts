@@ -1,31 +1,72 @@
 import * as http from 'node:http'
-import { connInfo, type ConnInfo } from './conninfo'
+import type { RuntimeServer } from '../../types'
+import { connInfo, getNodeRequest, registerNodeRequest, type ConnInfo, type ConnInfoOptions } from './conninfo'
 
-export { connInfo, type ConnInfo }
+export { connInfo, type ConnInfo, type ConnInfoOptions }
 
 export interface options {
     fetch: (req: Request, ...args: any) => Response | Promise<Response>
     port: number
+    /**
+     * Trust `X-Forwarded-Proto` (request URL scheme) and `X-Forwarded-For`
+     * (`connInfo().ip`). Only enable behind a proxy that sets/overwrites
+     * these headers - clients can send them too. Defaults to `false`.
+     */
+    trustProxy?: boolean
 }
 
-async function convertNodeReqToWebReq(req: http.IncomingMessage) {
-    const protocol = (req.headers['x-forwarded-proto'] as string)?.split(',')[0] || 'http';
-    const url = `${protocol}://${req.headers.host}${req.url}`;
+export type NodeServer = http.Server<typeof http.IncomingMessage, typeof http.ServerResponse> & Required<Pick<RuntimeServer, 'requestIP'>>
+
+class BadRequestError extends Error { }
+
+function buildUrl(req: http.IncomingMessage, trustProxy: boolean): URL {
+    const socket = req.socket as http.IncomingMessage['socket'] & { encrypted?: boolean }
+    const protocol = (trustProxy && (req.headers['x-forwarded-proto'] as string)?.split(',')[0].trim())
+        || (socket?.encrypted ? 'https' : 'http');
+    const target = req.url || '/';
+    try {
+        // origin-form ("/path?q"). Concatenate rather than resolve against a
+        // base, so "//evil.com/x" stays a path instead of becoming a host.
+        if (target[0] === '/') {
+            return new URL(`${protocol}://${req.headers.host || 'localhost'}${target}`);
+        }
+        // absolute-form ("GET http://host/path HTTP/1.1"), sent to proxies
+        // but valid for any server to receive (RFC 9112 3.2.2).
+        const url = new URL(target);
+        if (url.protocol === 'http:' || url.protocol === 'https:') return url;
+    } catch { }
+    throw new BadRequestError(`invalid request target: ${target}`);
+}
+
+function convertNodeReqToWebReq(req: http.IncomingMessage, signal: AbortSignal, trustProxy: boolean) {
+    const url = buildUrl(req, trustProxy);
 
     const init: RequestInit = {
         method: req.method,
         headers: req.headers as Record<string, string>,
-        body: null
+        body: null,
+        signal,
     }
     const contentLength = req.headers['content-length'];
     const hasBody = req.headers['transfer-encoding'] !== undefined
         || (contentLength !== undefined && contentLength !== '0');
-    if (req.method !== 'GET' && req.method !== 'PUT' && hasBody) {
-        init.body = new ReadableStream({
+    if (req.method !== 'GET' && req.method !== 'HEAD' && hasBody) {
+        init.body = new ReadableStream<Uint8Array>({
             start(controller) {
-                req.on('data', (chunk) => controller.enqueue(new Uint8Array(chunk)));
+                req.on('data', (chunk) => {
+                    controller.enqueue(new Uint8Array(chunk));
+                    // respect the consumer's pace instead of buffering the
+                    // whole upload in memory
+                    if ((controller.desiredSize ?? 1) <= 0) req.pause();
+                });
                 req.on('end', () => controller.close());
                 req.on('error', (err) => controller.error(err));
+            },
+            pull() {
+                req.resume();
+            },
+            cancel() {
+                req.destroy();
             }
         });
         // undici's Request constructor throws "RequestInit: duplex option is
@@ -55,26 +96,71 @@ async function sendWebResToNodeRes(webRes: Response, nodeRes: http.ServerRespons
     nodeRes.writeHead(webRes.status)
     const reader = webRes.body?.getReader()
     if (reader) {
-        let result
-        while (!(result = await reader.read()).done) {
-            nodeRes.write(Buffer.from(result.value))
+        // client went away: stop pulling from the response stream so its
+        // cancel() runs instead of producing chunks nobody will read
+        const onClose = () => { reader.cancel().catch(() => { }) }
+        nodeRes.once('close', onClose)
+        try {
+            let result
+            while (!(result = await reader.read()).done) {
+                if (nodeRes.destroyed) break
+                if (!nodeRes.write(result.value)) {
+                    await new Promise<void>((resolve) => {
+                        const done = () => {
+                            nodeRes.off('drain', done)
+                            nodeRes.off('close', done)
+                            resolve()
+                        }
+                        nodeRes.on('drain', done)
+                        nodeRes.on('close', done)
+                    })
+                }
+            }
+        } finally {
+            nodeRes.off('close', onClose)
         }
     }
-    nodeRes.end()
+    if (!nodeRes.destroyed) nodeRes.end()
 }
 
-export function serve(options: options): http.Server<typeof http.IncomingMessage, typeof http.ServerResponse> {
+export function serve(options: options): NodeServer {
+    const trustProxy = options.trustProxy === true
+
     const server = http.createServer(async (request, response) => {
-        const webRequest = await convertNodeReqToWebReq(request);
+        const controller = new AbortController()
+        response.once('close', () => {
+            if (!response.writableFinished) controller.abort()
+        })
 
-        // send our req to diesel's fetch handler
+        try {
+            const webRequest = convertNodeReqToWebReq(request, controller.signal, trustProxy);
+            registerNodeRequest(webRequest, request, trustProxy)
 
-        const webRes = await options.fetch(webRequest, server as any)
-        await sendWebResToNodeRes(webRes, response)
-    })
+            // send our req to diesel's fetch handler
+            const webRes = await options.fetch(webRequest, server)
+            await sendWebResToNodeRes(webRes, response)
+        } catch (err) {
+            if (response.destroyed) return
+            if (!response.headersSent) {
+                const badRequest = err instanceof BadRequestError
+                if (!badRequest) console.error(err)
+                response.writeHead(badRequest ? 400 : 500, { 'Content-Type': 'text/plain; charset=utf-8' })
+                response.end(badRequest ? 'Bad Request' : 'Internal Server Error')
+            } else {
+                console.error(err)
+                response.destroy(err as Error)
+            }
+        }
+    }) as NodeServer
+
+    // same shape as Bun's server.requestIP(), so `ctx.server.requestIP(ctx.req)`
+    // returns the real socket address under node too
+    server.requestIP = (req: Request) => {
+        const socket = getNodeRequest(req)?.socket
+        if (!socket?.remoteAddress) return null
+        return { address: socket.remoteAddress, port: socket.remotePort, family: socket.remoteFamily }
+    }
 
     server.listen(options.port ?? 3000, () => console.log(`node server running on port ${options.port ?? 3000}`))
     return server;
 }
-
-
