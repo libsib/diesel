@@ -599,18 +599,21 @@ export default class Diesel {
       }
     }
 
-    // onSend
-    if (this.hasOnSendHook) {
-      const response = await runHooks("onSend", this.hooks.onSend, [
-        ctx,
-        finalResult,
-      ]);
-      if (response) return response;
+    // onSend only exists to see/replace the outgoing response, so it
+    // runs on the final one - after the not-found/static fallback.
+    if (!this.hasOnSendHook) {
+      if (finalResult) return finalResult;
+      return await handleRouteNotFound(this as any, ctx as any, ctx.path!);
     }
 
-    if (finalResult) return finalResult;
+    if (!finalResult)
+      finalResult = await handleRouteNotFound(this as any, ctx as any, ctx.path!);
 
-    return await handleRouteNotFound(this as any, ctx as any, ctx.path!);
+    const response = await runHooks("onSend", this.hooks.onSend, [
+      ctx,
+      finalResult,
+    ]);
+    return response ?? finalResult;
   }
 
   /**
@@ -630,7 +633,13 @@ export default class Diesel {
     const format = this.errorFormat;
     const path = ctx.path ?? "";
 
-    const headers = new Headers(ctx.headers ?? ctx.req.headers);
+    // Only the response headers the handler set (cookies, custom headers)
+    // - never the request's, or Cookie/Authorization would be echoed back.
+    const headers = new Headers(ctx.headers);
+    headers.set(
+      "Content-Type",
+      format === "json" ? "application/json; charset=utf-8" : "text/plain; charset=utf-8",
+    );
 
     // 1. user defined hooks
     if (this.hasOnError) {
@@ -681,9 +690,6 @@ export default class Diesel {
         ...(isDev && { stack: errorStack }),
         path,
       };
-      if (!headers.has("Content-Type")) {
-        headers.set("Content-Type", "application/json")
-      }
       return Response.json(body, {
         status: 500,
         headers,
@@ -692,9 +698,6 @@ export default class Diesel {
       const message: string = isDev
         ? `Error: ${errorMessage}\nStack: ${errorStack}`
         : `Error: ${errorMessage}`;
-      if (!headers.has("Content-Type")) {
-        headers.set("Content-Type", "text/plain")
-      }
       return new Response(message, {
         headers,
         status: 500,
@@ -798,20 +801,34 @@ export default class Diesel {
     const tempRoutes =
       routerInstance?.tempRoutes ?? new Map<string, TempRouteEntry>();
 
+    const tempMiddlewares =
+      routerInstance?.tempMiddlewares ?? new Map<string, middlewareFunc[]>();
+
+    // The child's global middleware (`use(mw)` and `use("/", mw)`) has to
+    // cover every one of its routes, so attach it to each route's full
+    // path (once per path, even when several methods share it).
+    const childGlobals = [
+      ...(routerInstance?.global_middlewares ?? []),
+      ...(tempMiddlewares.get("/") ?? []),
+    ];
+    const withGlobals = childGlobals.length ? new Set<string>() : null;
+
     for (const [path, args] of tempRoutes.entries()) {
       const cleanedPath = path.replace(/::\w+$/, "");
       const fullpath = `${basePath}${cleanedPath}`;
       const method = args.method;
       this.router.add(method, fullpath, args.handlers as unknown as Function[]);
+
+      if (withGlobals && !withGlobals.has(fullpath)) {
+        withGlobals.add(fullpath);
+        this.router.addMiddleware(fullpath, childGlobals);
+      }
     }
 
-    // Middleware assigning
-    const tempMiddlewares =
-      routerInstance?.tempMiddlewares ?? new Map<string, middlewareFunc[]>();
-
+    // Path-specific middleware keeps its path, under basePath.
     for (const [path, handlers] of tempMiddlewares.entries()) {
-      const fullPath = path === "/" ? basePath || "/" : `${basePath}${path}`;
-      this.router.addMiddleware(fullPath, handlers);
+      if (path === "/") continue;
+      this.router.addMiddleware(`${basePath}${path}`, handlers);
     }
 
     // Nullify the router instance to prevent accidental reuse.
@@ -862,6 +879,9 @@ export default class Diesel {
    * Examples:
    * - app.use(h1) -> Adds a single global middleware.
    * - app.use("/home", h1) -> Adds `h1` middleware to the `/home` path.
+   * - app.use([h1, h2]) / app.use("/home", [h1, h2]) -> arrays are flattened.
+   * - app.use(["/home", "/user"], h1) -> Adds `h1` to each path.
+   * Throws a TypeError if no middleware is given or one isn't a function.
    *
    * @param pathORHandler - a path string, or the first middleware function if you're going global
    * @param handlers - more middleware functions
@@ -877,22 +897,43 @@ export default class Diesel {
       | Function[],
     ...handlers: middlewareFunc | middlewareFunc[] | Function | Function[] | any
   ): this {
-    if (!this.tempMiddlewares) this.tempMiddlewares = new Map();
-    if (typeof pathORHandler === "string") {
-      let path = pathORHandler === "/" ? "/" : pathORHandler;
-      if (!this.tempMiddlewares.has(path)) this.tempMiddlewares.set(path, []);
-      this.tempMiddlewares.get(path)!.push(...handlers);
+    const isPathList =
+      Array.isArray(pathORHandler) &&
+      pathORHandler.length > 0 &&
+      pathORHandler.every((p) => typeof p === "string");
+    const paths: string[] | null =
+      typeof pathORHandler === "string"
+        ? [pathORHandler]
+        : isPathList
+          ? (pathORHandler as string[])
+          : null;
 
-      this.router.addMiddleware(path, handlers);
-    } else if (typeof pathORHandler === "function") {
-      const arrs = [pathORHandler, ...handlers];
-      if (!this.tempMiddlewares.has("/")) this.tempMiddlewares.set("/", []);
-      this.tempMiddlewares.get("/")!.push(...handlers);
+    // Flatten so `use(mw)`, `use([mw1, mw2])` and `use(path, [mw1, mw2])`
+    // all end up as one flat list of functions.
+    const mws = (paths ? handlers : [pathORHandler, ...handlers]).flat();
+    if (mws.length === 0)
+      throw new TypeError("use() requires at least one middleware function");
+    for (let i = 0; i < mws.length; i++) {
+      if (typeof mws[i] !== "function")
+        throw new TypeError(
+          `use() expects middleware functions (optionally after a path or array of paths), got ${typeof mws[i]} at position ${i}`,
+        );
+    }
 
+    if (paths) {
+      if (!this.tempMiddlewares) this.tempMiddlewares = new Map();
+      for (const path of paths) {
+        if (!this.tempMiddlewares.has(path)) this.tempMiddlewares.set(path, []);
+        this.tempMiddlewares.get(path)!.push(...mws);
+
+        this.router.addMiddleware(path, mws);
+      }
+    } else {
       // Global (no-path) middleware bypasses the router entirely - kept
       // on the instance instead so the hot path doesn't pay for a
       // per-request merge/copy of it inside the router's find().
-      (this.global_middlewares ??= []).push(...arrs);
+      // route() reads it from here too, to apply a child's globals.
+      (this.global_middlewares ??= []).push(...mws);
       this.is_global_middleware = true;
     }
 
