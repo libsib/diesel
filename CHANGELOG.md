@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.5.5
+
+A security- and correctness-focused release. Six middleware/adaptor fixes, several of which close auth-bypass and spoofing vectors. No breaking API changes, but a few security-motivated behaviour changes are called out below.
+
+### Security & Fixes
+
+- **core: stop echoing request headers in error responses (#147, closes #153).** Error responses no longer copy the client's request headers (`Cookie`, `Authorization`, ...) when the handler set none; only response headers are kept and `Content-Type` matches the error format. `use()` now supports the documented array forms (`use([mw])`, `use(path, [mw])`, `use([paths], mw)`) and throws a `TypeError` on bad input instead of silently registering nothing. `route()` applies the child's global middleware to every child route under the base path (previously `child.use(auth); app.route("/api", child)` left `/api/x` unprotected). `onSend` now runs after the not-found/static fallback so hooks always receive the final `Response`.
+
+- **jwt: close auth bypasses (#144, closes #150).** `authenticateJwtDB` with no `routes` now protects every route (it previously never ran). Protected-route matching uses the normalized router path (`ctx.path`), so `/admin/`, `//admin` and `/%61dmin` no longer skip auth. The `authenticateJwtDB` wrapper is now `async`, so `pipelineArchitecture: true` awaits it. An empty `accessToken` cookie no longer overrides `Authorization: Bearer`; the `Bearer` scheme is matched case-insensitively; a missing user returns 401, not 404. `jwt.verify` only accepts HMAC algorithms (HS256/384/512).
+
+- **ratelimit: key on socket IP, per-instance store, atomic incr (#145, closes #151).** **Behaviour change:** `rateLimit()` now keys on the socket IP (`server.requestIP(req)`) instead of the first `X-Forwarded-For` entry, which any client could randomize to bypass the limit. `X-Forwarded-For` / `CF-Connecting-IP` are no longer read by default — behind a proxy you control set `trustProxy: true` (uses the right-most XFF hop), or pass a `keyGenerator`. The in-memory counter Map is now per `rateLimit()` instance, so different routes no longer share counts. `max: 0` now blocks the first request. New optional `RateLimitStore.incr(key, ttlMs)`; `RedisStore` implements it with `INCR` + `PEXPIRE` only on the first hit, fixing the read-then-write race and the TTL being refreshed on every hit.
+
+- **node adaptor: error handling, PUT bodies, disconnect abort, proxy trust (#146, closes #152).** Handler/stream errors are caught (500 if headers not sent, otherwise the socket is destroyed) instead of an unhandled rejection + hung socket. Malformed `Host`/request target → 400; absolute-form targets (`GET http://h/x`) parse correctly. PUT request bodies are no longer dropped. `req.signal` aborts when the client disconnects, the response stream is cancelled, and `write()` backpressure is respected. `server.requestIP(req)` and `connInfo(req)` return the real socket address. **Behaviour change:** `X-Forwarded-Proto` / `X-Forwarded-For` are ignored unless `serve({ trustProxy: true })`.
+
+- **cors: `Vary: Origin`, spec-correct preflight and credentials (#143, closes #149).** `Vary: Origin` is appended (existing `Vary` preserved) whenever the response depends on the request Origin, preventing shared caches/CDNs from serving one origin's `Access-Control-Allow-Origin` to another. OPTIONS is only answered as a 204 preflight when `Access-Control-Request-Method` is present. `Access-Control-Allow-Credentials` is only ever sent as `true`. `origin: "*"` with `credentials: true` now reflects the request Origin instead of the invalid `*` + credentials pair.
+
+- **filter: segment-aware public route matching (#142, closes #148).** `filter()` public routes now match by path segment: `"/api"` covers `/api` and `/api/*` but not `/api-admin`. `publicRoutes: ["/"]` now only makes `/` public (it previously made every route public). Request paths and configured routes are normalized (duplicate/trailing slashes) before matching.
+
 ## 3.5.4
 
 ### Fixes
