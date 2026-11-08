@@ -1,0 +1,108 @@
+{
+  "mode": "paired",
+  "dieselUrl": "http://139.99.91.212:3000",
+  "honoUrl": "http://139.99.91.212:3001",
+  "vus": 100,
+  "duration": "20s",
+  "timestamp": "2026-09-02T12:38:51.908Z",
+  "totalRequests": 33648,
+  "failRate": 0,
+  "rows": [
+    {
+      "route": "root",
+      "label": "GET  /                       (small json)",
+      "deltaMed": -0.37599999999999767,
+      "deltaAvg": -0.6559814550641937,
+      "winPct": 51.402757964812174,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 55.963,
+      "hMed": 57.358
+    },
+    {
+      "route": "param",
+      "label": "GET  /user/:id               (text, 1 param)",
+      "deltaMed": -0.9519999999999982,
+      "deltaAvg": -1.4478549690917721,
+      "winPct": 53.875416072277694,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 55.946,
+      "hMed": 57.467
+    },
+    {
+      "route": "named",
+      "label": "GET  /users/:name            (text, 1 param)",
+      "deltaMed": -0.7209999999999965,
+      "deltaAvg": -1.012747503566333,
+      "winPct": 52.82929148834997,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 56.114,
+      "hMed": 57.394
+    },
+    {
+      "route": "two_param",
+      "label": "GET  /user/:id/post/:postId  (json, 2 params)",
+      "deltaMed": -1.0189999999999984,
+      "deltaAvg": -1.1528050404184493,
+      "winPct": 54.113171659534,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 56.103,
+      "hMed": 57.762
+    },
+    {
+      "route": "query",
+      "label": "GET  /api/search             (query parsing)",
+      "deltaMed": -0.6670000000000016,
+      "deltaAvg": -0.8260023775558735,
+      "winPct": 52.59153590109368,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 55.993,
+      "hMed": 57.192
+    },
+    {
+      "route": "headers",
+      "label": "GET  /api/headers            (header reads)",
+      "deltaMed": -0.5670000000000002,
+      "deltaAvg": -0.8892681883024254,
+      "winPct": 52.59153590109368,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 55.42,
+      "hMed": 56.771
+    },
+    {
+      "route": "items",
+      "label": "GET  /api/items              (~5.5KB payload)",
+      "deltaMed": -0.6020000000000039,
+      "deltaAvg": -0.6366804564907284,
+      "winPct": 53.49500713266762,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 56.115,
+      "hMed": 57.344
+    },
+    {
+      "route": "post_body",
+      "label": "POST /api/user               (json body parse)",
+      "deltaMed": -0.9149999999999991,
+      "deltaAvg": -1.0630313837375185,
+      "winPct": 53.352353780313834,
+      "total": 2103,
+      "decisive": false,
+      "faster": "diesel",
+      "dMed": 55.321,
+      "hMed": 57.094
+    }
+  ]
+}

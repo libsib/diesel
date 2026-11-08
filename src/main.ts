@@ -57,6 +57,7 @@ export default class Diesel {
   staticFiles: any | undefined;
   baseApiUrl: string;
   idleTimeOut: number;
+  maxBodySize: number
   routeNotFoundFunc: (
     c: Context,
   ) => void | Promise<void> | Promise<Response> | Response;
@@ -101,6 +102,7 @@ export default class Diesel {
       baseApiUrl = "",
       idleTimeOut = 10,
       pipelineArchitecture = false,
+      maxBodySize = Infinity
     } = options;
 
     if (routerInstance) this.router = routerInstance;
@@ -121,6 +123,7 @@ export default class Diesel {
     this.#defineFetch();
     this.routes = {};
     this.idleTimeOut = idleTimeOut ?? 10;
+    this.maxBodySize = maxBodySize;
     this.baseApiUrl = baseApiUrl || "";
     this.tempRoutes = null;
     this.tempMiddlewares = null;
@@ -422,6 +425,7 @@ export default class Diesel {
           matchedRouteHandler?.params ?? EMPTY_OBJ,
           env,
           executionContext,
+          this.maxBodySize
         );
         return execute_handler(this, ctx, matchedRouteHandler).catch(
           async (error: any) => {

@@ -1,7 +1,8 @@
-import { TrieRouter2 } from "../../src/router/trie2";
+import { TrieRouter } from "../../src/router/trie";
+import { RadixRouter } from "../../src/router/radix";
 
 // Seed the router with realistic routes
-function seedRouter(router) {
+function seedRouter(router: any) {
   // API v1 routes
   router.add('GET', '/api/v1/users', () => 'list users');
   router.add('GET', '/api/v1/users/:id', () => 'get user');
@@ -57,7 +58,7 @@ const testCases = [
 ];
 
 // Benchmark function
-function benchmark(name, fn, iterations) {
+function benchmark(name: string, fn: Function, iterations: number) {
   const start = performance.now();
   for (let i = 0; i < iterations; i++) {
     fn();
@@ -69,12 +70,14 @@ function benchmark(name, fn, iterations) {
 // Main test runner
 function runBenchmark() {
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║         Router Performance Benchmark (find vs find2)      ║');
+  console.log('║         Router Performance Benchmark (Trie vs Radix)       ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
 
-  // Initialize router
-  const router = new TrieRouter2();
-  seedRouter(router);
+  // Initialize routers
+  const trieRouter = new TrieRouter();
+  const radixRouter = new RadixRouter();
+  seedRouter(trieRouter);
+  seedRouter(radixRouter);
   
   const warmupIterations = 100000;
   const testIterations = 5000000;
@@ -86,38 +89,38 @@ function runBenchmark() {
   console.log('🔥 Warming up JIT compiler...');
   for (let i = 0; i < warmupIterations; i++) {
     testCases.forEach(tc => {
-      router.find(tc.method, tc.path);
-      router.find2(tc.method, tc.path);
+      trieRouter.find(tc.method, tc.path);
+      radixRouter.find(tc.method, tc.path);
     });
   }
   console.log('✓ Warmup complete\n');
 
   // Run benchmarks
   console.log('Running benchmarks...\n');
-  const results = [];
+  const results: any[] = [];
 
   testCases.forEach((testCase, idx) => {
     process.stdout.write(`[${idx + 1}/${testCases.length}] Testing: ${testCase.name}...`);
     
-    const findTime = benchmark(
-      'find',
-      () => router.find(testCase.method, testCase.path),
+    const trieTime = benchmark(
+      'TrieRouter',
+      () => trieRouter.find(testCase.method, testCase.path),
       testIterations
     );
     
-    const find2Time = benchmark(
-      'find2',
-      () => router.find2(testCase.method, testCase.path),
+    const radixTime = benchmark(
+      'RadixRouter',
+      () => radixRouter.find(testCase.method, testCase.path),
       testIterations
     );
     
-    const diff = findTime - find2Time;
-    const improvement = (diff / findTime * 100);
+    const diff = trieTime - radixTime;
+    const improvement = (diff / trieTime * 100);
     
     results.push({
       name: testCase.name,
-      find: findTime,
-      find2: find2Time,
+      trie: trieTime,
+      radix: radixTime,
       diff: diff,
       improvement: improvement
     });
@@ -131,60 +134,58 @@ function runBenchmark() {
   console.log('╚════════════════════════════════════════════════════════════╝\n');
 
   results.forEach((result, idx) => {
-    const winner = result.improvement > 0 ? 'find2' : result.improvement < 0 ? 'find' : 'tie';
+    const winner = result.improvement > 0 ? 'RadixRouter' : result.improvement < 0 ? 'TrieRouter' : 'tie';
     const symbol = result.improvement > 0 ? '🟢' : result.improvement < 0 ? '🔴' : '⚪';
     
     console.log(`${symbol} Test ${idx + 1}: ${result.name}`);
-    console.log(`   find():  ${result.find.toFixed(2)} ms`);
-    console.log(`   find2(): ${result.find2.toFixed(2)} ms`);
-    console.log(`   Diff:    ${Math.abs(result.diff).toFixed(2)} ms (${winner} is ${Math.abs(result.improvement).toFixed(2)}% faster)`);
+    console.log(`   TrieRouter:  ${result.trie.toFixed(2)} ms`);
+    console.log(`   RadixRouter: ${result.radix.toFixed(2)} ms`);
+    console.log(`   Diff:        ${Math.abs(result.diff).toFixed(2)} ms (${winner} is ${Math.abs(result.improvement).toFixed(2)}% faster)`);
     console.log();
   });
 
   // Summary statistics
-  const avgFind = results.reduce((sum, r) => sum + r.find, 0) / results.length;
-  const avgFind2 = results.reduce((sum, r) => sum + r.find2, 0) / results.length;
-  const avgImprovement = ((avgFind - avgFind2) / avgFind * 100);
+  const avgTrie = results.reduce((sum, r) => sum + r.trie, 0) / results.length;
+  const avgRadix = results.reduce((sum, r) => sum + r.radix, 0) / results.length;
+  const avgImprovement = ((avgTrie - avgRadix) / avgTrie * 100);
   
-  const totalFind = results.reduce((sum, r) => sum + r.find, 0);
-  const totalFind2 = results.reduce((sum, r) => sum + r.find2, 0);
+  const totalTrie = results.reduce((sum, r) => sum + r.trie, 0);
+  const totalRadix = results.reduce((sum, r) => sum + r.radix, 0);
 
   console.log('╔════════════════════════════════════════════════════════════╗');
   console.log('║                         SUMMARY                            ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
 
-  console.log(`Average find():  ${avgFind.toFixed(2)} ms`);
-  console.log(`Average find2(): ${avgFind2.toFixed(2)} ms`);
+  console.log(`Average TrieRouter:  ${avgTrie.toFixed(2)} ms`);
+  console.log(`Average RadixRouter: ${avgRadix.toFixed(2)} ms`);
   console.log(`Average improvement: ${avgImprovement >= 0 ? '+' : ''}${avgImprovement.toFixed(2)}%\n`);
 
-  console.log(`Total find():  ${totalFind.toFixed(2)} ms`);
-  console.log(`Total find2(): ${totalFind2.toFixed(2)} ms`);
-  console.log(`Total diff: ${Math.abs(totalFind - totalFind2).toFixed(2)} ms\n`);
+  console.log(`Total TrieRouter:  ${totalTrie.toFixed(2)} ms`);
+  console.log(`Total RadixRouter: ${totalRadix.toFixed(2)} ms`);
+  console.log(`Total diff:        ${Math.abs(totalTrie - totalRadix).toFixed(2)} ms\n`);
 
-  const opsPerSecFind = (testIterations / (avgFind / 1000));
-  const opsPerSecFind2 = (testIterations / (avgFind2 / 1000));
+  const opsPerSecTrie = (testIterations / (avgTrie / 1000));
+  const opsPerSecRadix = (testIterations / (avgRadix / 1000));
 
-  console.log(`Operations/sec (find):  ${opsPerSecFind.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
-  console.log(`Operations/sec (find2): ${opsPerSecFind2.toLocaleString(undefined, { maximumFractionDigits: 0 })}\n`);
+  console.log(`Operations/sec (TrieRouter):  ${opsPerSecTrie.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
+  console.log(`Operations/sec (RadixRouter): ${opsPerSecRadix.toLocaleString(undefined, { maximumFractionDigits: 0 })}\n`);
 
   // Determine winner
-  const find2Wins = results.filter(r => r.improvement > 0).length;
-  const findWins = results.filter(r => r.improvement < 0).length;
+  const radixWins = results.filter(r => r.improvement > 0).length;
+  const trieWins = results.filter(r => r.improvement < 0).length;
   const ties = results.filter(r => Math.abs(r.improvement) < 0.1).length;
 
   console.log('Win/Loss Record:');
-  console.log(`  find2 wins: ${find2Wins}`);
-  console.log(`  find wins:  ${findWins}`);
-  console.log(`  ties:       ${ties}\n`);
+  console.log(`  RadixRouter wins: ${radixWins}`);
+  console.log(`  TrieRouter wins:  ${trieWins}`);
+  console.log(`  ties:             ${ties}\n`);
 
   if (Math.abs(avgImprovement) < 1) {
     console.log('🤝 RESULT: Performance is equivalent (< 1% difference)');
   } else if (avgImprovement > 0) {
-    console.log(`🏆 WINNER: find2() is ${avgImprovement.toFixed(2)}% faster on average`);
-    console.log('   (using .filter(Boolean) instead of length check)');
+    console.log(`🏆 WINNER: RadixRouter is ${avgImprovement.toFixed(2)}% faster on average`);
   } else {
-    console.log(`🏆 WINNER: find() is ${Math.abs(avgImprovement).toFixed(2)}% faster on average`);
-    console.log('   (using length check instead of .filter(Boolean))');
+    console.log(`🏆 WINNER: TrieRouter is ${Math.abs(avgImprovement).toFixed(2)}% faster on average`);
   }
   console.log();
 }

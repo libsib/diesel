@@ -35,6 +35,11 @@
       "import": "./dist/middlewares/filesave/savefile.js",
       "require": "./dist/middlewares/filesave/savefile.js"
     },
+    "./body-limit": {
+      "types": "./dist/middlewares/body-limit/body-limit.d.ts",
+      "import": "./dist/middlewares/body-limit/body-limit.js",
+      "require": "./dist/middlewares/body-limit/body-limit.js"
+    },
     "./ratelimit": {
       "types": "./dist/middlewares/ratelimit/rate-limit.d.ts",
       "import": "./dist/middlewares/ratelimit/rate-limit.js",

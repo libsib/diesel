@@ -41,7 +41,7 @@ export class Context {
   private parsedBody: Promise<any> | null = null;
   private contextData: Record<string, any> = EMPTY_OBJ;
   private urlObject: URL | null = null;
-
+  private maxBodySize: number
   /**
    * Made once per incoming request, framework does this for you, you
    * don't need to call `new Context()` yourself.
@@ -60,6 +60,7 @@ export class Context {
     param: Record<string, string> | undefined,
     env: Record<string, any> | undefined,
     executionContext: any | undefined,
+    maxBodySize: number
   ) {
     this.req = req;
     this.server = server;
@@ -67,6 +68,7 @@ export class Context {
     this.#param = param;
     this.env = env;
     this.executionContext = executionContext;
+    this.maxBodySize = maxBodySize;
   }
 
   // Methods

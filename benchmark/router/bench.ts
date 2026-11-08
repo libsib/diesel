@@ -1,4 +1,5 @@
 import { TrieRouter } from "../../src/router/trie";
+import { RadixRouter } from "../../src/router/radix";
 import { FindMyWayRouter } from "./find-my-way";
 import { HonoTrieRouter } from "./hono/router";
 
@@ -234,6 +235,7 @@ function runSuite(title: string, routes: string[], paths: string[]): void {
     FindMyWay: new FindMyWayRouter() as RouterInstance,
     Trie: new TrieRouter() as RouterInstance,
     HonoTrieRouter: new HonoTrieRouter() as RouterInstance,
+    RadixRouter: new RadixRouter() as RouterInstance,
   };
 
   console.log("\n--- Insertion Phase ---");

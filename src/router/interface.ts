@@ -1,6 +1,9 @@
 import { TrieRouter } from "./trie.js";
+import { RadixRouter } from "./radix.js";
 import { TrieRouter as PeepalTrieRouter } from "peepal-router";
 
+export { RadixRouter } from "./radix.js";
+export { TrieRouter } from "./trie.js";
 
 // any router diesel uses (our own trie router, or the peepal one) has
 // to implement this. Diesel only ever talks to routers through this interface.
@@ -46,8 +49,10 @@ export class PeepalRouter implements Router {
 export class RouterFactory {
     static create(name?: string): Router {
         switch (name) {
+            case 'radix':
+                return new RadixRouter()
             case 't2':
-                return new TrieRouter()
+                return new RadixRouter()
             case 'trie':
                 return new TrieRouter()
             case 'peepal':
