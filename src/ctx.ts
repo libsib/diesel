@@ -439,7 +439,8 @@ export class Context {
       value,
     )}`;
 
-    if (options.maxAge) cookieString += `; Max-Age=${options.maxAge}`;
+    if (options.maxAge !== undefined)
+      cookieString += `; Max-Age=${options.maxAge}`;
     if (options.expires)
       cookieString += `; Expires=${options.expires.toUTCString()}`;
     if (options.path) cookieString += `; Path=${options.path}`;
@@ -568,7 +569,16 @@ function parseCookie(cookieHeader: string): Record<string, string> {
   return Object.fromEntries(
     cookieHeader.split(";").map((cookie) => {
       const [name, ...valueParts] = cookie.trim().split("=");
-      return [name, decodeURIComponent(valueParts.join("="))];
+      const rawValue = valueParts.join("=");
+      let value: string;
+      try {
+        value = decodeURIComponent(rawValue);
+      } catch {
+        // malformed percent-encoding (e.g. "%E0%A4%A") would throw a
+        // URIError and crash the request, fall back to the raw value
+        value = rawValue;
+      }
+      return [name, value];
     }),
   );
 }

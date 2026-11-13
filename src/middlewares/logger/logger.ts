@@ -60,7 +60,7 @@ const log = (level: LogLevel, message: string, meta?: LogMeta) => {
             ? `${statusColor}${meta.status}${COLORS.reset}`
             : undefined,
         method: meta?.method
-            ? `${methodColor > color}${meta.method}${COLORS.reset}`
+            ? `${methodColor}${meta.method}${COLORS.reset}`
             : undefined,
     };
 
