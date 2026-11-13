@@ -439,7 +439,8 @@ export class Context {
       value,
     )}`;
 
-    if (options.maxAge) cookieString += `; Max-Age=${options.maxAge}`;
+    if (options.maxAge !== undefined)
+      cookieString += `; Max-Age=${options.maxAge}`;
     if (options.expires)
       cookieString += `; Expires=${options.expires.toUTCString()}`;
     if (options.path) cookieString += `; Path=${options.path}`;
