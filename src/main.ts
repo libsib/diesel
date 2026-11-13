@@ -65,6 +65,8 @@ export default class Diesel {
   #newPipelineArchitecture: boolean = false;
   emitter: undefined | EventEmitter;
   errorFormat: errorFormat;
+  // max accepted request body size in bytes (undefined = no limit)
+  bodyLimit?: number;
   // tha path of static files
   staticPath: any;
   // the request path where user wants static files should be server
@@ -101,7 +103,10 @@ export default class Diesel {
       baseApiUrl = "",
       idleTimeOut = 10,
       pipelineArchitecture = false,
+      bodyLimit,
     } = options;
+
+    this.bodyLimit = bodyLimit;
 
     if (routerInstance) this.router = routerInstance;
     else this.router = RouterFactory.create(router);
@@ -422,6 +427,7 @@ export default class Diesel {
           matchedRouteHandler?.params ?? EMPTY_OBJ,
           env,
           executionContext,
+          this.bodyLimit,
         );
         return execute_handler(this, ctx, matchedRouteHandler).catch(
           async (error: any) => {
@@ -492,6 +498,7 @@ export default class Diesel {
           matchedRouteHandler?.params ?? EMPTY_OBJ,
           env,
           executionContext,
+          this.bodyLimit,
         );
         return execute_handler(this, ctx, matchedRouteHandler).catch(
           async (error: any) => {
@@ -535,6 +542,7 @@ export default class Diesel {
       matchedRouteHandler?.params ?? EMPTY_OBJ,
       env,
       executionContext,
+      this.bodyLimit,
     );
     return this.#execute_handlers(ctx, matchedRouteHandler).catch((err: any) =>
       this.handleError(err, ctx),

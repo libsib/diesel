@@ -179,6 +179,12 @@ export interface DieselOptions {
     errorFormat?: errorFormat
     router?: string;
     routerInstance?: Router;
+    /**
+     * Max accepted request body size in bytes. When set, requests whose
+     * Content-Length (or actual read size for text bodies) exceeds this
+     * are rejected with 413 Payload Too Large. Opt-in: undefined = no limit.
+     */
+    bodyLimit?: number;
 }
 
 
