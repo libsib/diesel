@@ -18,6 +18,18 @@ describe("FileSaveMidlleware", () => {
     );
 
     app.post(
+        "/upload-restricted",
+        fileSaveMiddleware({
+            fields: ["file"],
+            allowedExtensions: [".png"],
+            maxFileSize: 10,
+        }) as handlerFunction,
+        (ctx: ContextType) => {
+            return ctx.json({ savedPath: ctx.req.files["file"] });
+        }
+    );
+
+    app.post(
         "/upload-multiple",
         fileSaveMiddleware({ fields: ["file", 'file2'] }) as handlerFunction,
         (ctx: ContextType) => {
@@ -91,6 +103,30 @@ describe("FileSaveMidlleware", () => {
 
             Bun.file(savedPath).delete()
         });
+    });
+
+    it("rejects a file whose extension is not whitelisted", async () => {
+        const formData = new FormData();
+        formData.append("file", new Blob(["hi"]), "evil.txt");
+
+        const res = await fetch("http://localhost:3006/upload-restricted", {
+            method: "POST",
+            body: formData,
+        });
+
+        expect(res.status).toBe(400);
+    });
+
+    it("rejects a file larger than maxFileSize", async () => {
+        const formData = new FormData();
+        formData.append("file", new Blob(["x".repeat(100)]), "big.png");
+
+        const res = await fetch("http://localhost:3006/upload-restricted", {
+            method: "POST",
+            body: formData,
+        });
+
+        expect(res.status).toBe(413);
     });
 
 })

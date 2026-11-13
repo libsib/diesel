@@ -4,6 +4,7 @@ import { Readable } from "node:stream";
 import type { CookieOptions, ParseBodyResult, RuntimeServer } from "./types";
 import { getMimeType } from "./utils/mimeType";
 import { EMPTY_OBJ } from "./constant";
+import { HTTPException } from "./http-exception";
 
 // let ejsInstance: any = null;
 
@@ -39,6 +40,8 @@ export class Context {
   private parsedQuery: Record<string, string> | null = null;
   private parsedCookies: Record<string, string> | null = null;
   private parsedBody: Promise<any> | null = null;
+  /** Max request body size in bytes, set from the app's `bodyLimit` option. */
+  bodyLimit?: number;
   private contextData: Record<string, any> = EMPTY_OBJ;
   private urlObject: URL | null = null;
 
@@ -60,6 +63,7 @@ export class Context {
     param: Record<string, string> | undefined,
     env: Record<string, any> | undefined,
     executionContext: any | undefined,
+    bodyLimit?: number,
   ) {
     this.req = req;
     this.server = server;
@@ -67,6 +71,7 @@ export class Context {
     this.#param = param;
     this.env = env;
     this.executionContext = executionContext;
+    this.bodyLimit = bodyLimit;
   }
 
   // Methods
@@ -177,12 +182,15 @@ export class Context {
     if (!this.parsedBody) {
       this.parsedBody = (async () => {
         try {
-          const result = await parseBody(this.req);
+          const result = await parseBody(this.req, this.bodyLimit);
           if (result.error) {
             throw new Error(result.error);
           }
           return Object.keys(result).length === 0 ? null : result;
         } catch (error) {
+          // Let HTTPException (e.g. 413 Payload Too Large) pass through with
+          // its own status instead of being masked as a generic parse error.
+          if (error instanceof HTTPException) throw error;
           throw new Error("Invalid request body format");
           // const message = error instanceof Error ? error.message : String(error);
           // throw new Error(`Failed to parse request body: ${message}`);
@@ -584,15 +592,63 @@ function parseCookie(cookieHeader: string): Record<string, string> {
 }
 
 /**
+ * Reads a request body as text, enforcing a byte limit even when the
+ * client omits or lies about Content-Length. Reads the stream chunk by
+ * chunk and bails with 413 the moment the running total exceeds `limit`.
+ *
+ * @param req - the request to read
+ * @param limit - max bytes, or undefined for no cap (plain req.text())
+ * @returns the decoded body text
+ */
+async function readTextWithLimit(
+  req: Request,
+  limit?: number,
+): Promise<string> {
+  if (limit === undefined || !req.body) return req.text();
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        total += value.byteLength;
+        if (total > limit) {
+          await reader.cancel();
+          throw new HTTPException(413, { message: "Payload Too Large" });
+        }
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
+/**
  * Reads and parses the request body based on the Content-Type header.
  * Handles json, x-www-form-urlencoded and multipart/form-data. Returns
  * `{}` if there's no content type or no body, and `{ error: ... }` if
  * the content type isn't one we handle.
  *
  * @param req - the raw request to read the body from
+ * @param limit - optional max body size in bytes (413 when exceeded)
  * @returns the parsed body, or an object with an `error` key
  */
-async function parseBody(req: Request): Promise<ParseBodyResult> {
+async function parseBody(
+  req: Request,
+  limit?: number,
+): Promise<ParseBodyResult> {
   const contentType: string = req.headers.get("Content-Type") || "";
   if (!contentType) return {};
 
@@ -600,16 +656,28 @@ async function parseBody(req: Request): Promise<ParseBodyResult> {
     return {};
   }
 
+  // Cheap up-front guard: reject before reading if the client declares a
+  // Content-Length bigger than the limit. Covers honest clients and most
+  // DoS attempts without buffering anything.
+  if (limit !== undefined) {
+    const declared = Number(req.headers.get("Content-Length"));
+    if (Number.isFinite(declared) && declared > limit) {
+      throw new HTTPException(413, { message: "Payload Too Large" });
+    }
+  }
+
   if (contentType.startsWith("application/json")) {
     try {
-      return await req.json();
+      const text = await readTextWithLimit(req, limit);
+      return text ? JSON.parse(text) : {};
     } catch (error) {
+      if (error instanceof HTTPException) throw error;
       throw new Error("Invalid request body format");
     }
   }
 
   if (contentType.startsWith("application/x-www-form-urlencoded")) {
-    const body = await req.text();
+    const body = await readTextWithLimit(req, limit);
     return Object.fromEntries(new URLSearchParams(body));
   }
 
